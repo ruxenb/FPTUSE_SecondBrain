@@ -3,8 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:fptu_se_second_brain/main.dart';
 
 void main() {
-  testWidgets('FPTU Second Brain App smoke test on desktop view', (WidgetTester tester) async {
-    // Giả lập kích thước màn hình Desktop chuẩn (1280x800)
+  testWidgets('FPTU Second Brain App template smoke test', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -12,15 +11,14 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    // Khởi tạo app và verify render thành công
     await tester.pumpWidget(const FPTUSecondBrainApp());
     await tester.pumpAndSettle();
 
-    // Verify thanh tiêu đề AppBar hiển thị
-    expect(find.text('FPTU SE BRAIN'), findsOneWidget);
-    // Verify màn hình Editor hiển thị bài note mẫu đã tải
-    expect(find.text('Flutter_Architecture.md'), findsOneWidget);
-    // Verify AI panel hiển thị
-    expect(find.text('AI STUDY ASSISTANT'), findsOneWidget);
+    // Verify title
+    expect(find.text('FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)'), findsOneWidget);
+    // Verify 3 member columns
+    expect(find.text('Member 1 (Vault & Filesystem)'), findsOneWidget);
+    expect(find.text('Member 2 (Markdown Editor & Note)'), findsOneWidget);
+    expect(find.text('Member 3 (AI Assistant & Quiz)'), findsOneWidget);
   });
 }

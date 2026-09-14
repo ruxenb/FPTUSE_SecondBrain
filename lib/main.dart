@@ -1,22 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-// Contracts
+// Contracts (Day 1 - Agreed by all 4 members)
 import 'contracts/vault_service.dart';
 import 'contracts/note_repository.dart';
 import 'contracts/ai_service.dart';
 
-// Mocks (Dùng cho Day 2-7)
+// Mocks (Day 2 - In-Memory Stubs for parallel UI development)
 import 'mocks/mock_vault_service.dart';
 import 'mocks/mock_note_repository.dart';
 import 'mocks/mock_ai_service.dart';
 
-// Real Services (Tuần 2 sẽ bật khi thay thế mock)
-import 'services/local_vault_service.dart';
-import 'services/local_note_repository.dart';
-import 'services/gemini_ai_service.dart';
-
-// Providers
+// Providers (Tầng State Management của 4 thành viên)
 import 'providers/vault_provider.dart';
 import 'providers/note_provider.dart';
 import 'providers/ai_provider.dart';
@@ -25,14 +20,6 @@ import 'providers/graph_provider.dart';
 // Core & UI Shell
 import 'core/theme/app_theme.dart';
 import 'screens/shell_screen.dart';
-
-/// CỜ ĐIỀU KHIỂN:
-/// - Đặt `true`: Sử dụng Mock Services (chạy ngay lập tức với dữ liệu mẫu trong memory).
-/// - Đặt `false`: Chuyển sang Real Services (đọc ghi ổ đĩa thật và gọi Gemini API).
-const bool kUseMock = true;
-
-/// Điền API Key Gemini của bạn tại đây khi chuyển kUseMock = false
-const String kGeminiApiKey = 'YOUR_GEMINI_API_KEY_HERE';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,20 +33,18 @@ class FPTUSecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. TẦNG CONTRACTS & SERVICES (Tùy biến theo cờ kUseMock)
+        // 1. Contracts & Services (Hiện tại dùng Mocks, Tuần 2 từng bạn tạo file Real Service thay thế)
         Provider<VaultService>(
-          create: (_) => kUseMock ? MockVaultService() : LocalVaultService(),
+          create: (_) => MockVaultService(),
         ),
         Provider<NoteRepository>(
-          create: (_) => kUseMock ? MockNoteRepository() : LocalNoteRepository(),
+          create: (_) => MockNoteRepository(),
         ),
         Provider<AIService>(
-          create: (_) => kUseMock
-              ? MockAIService()
-              : GeminiAIService(apiKey: kGeminiApiKey),
+          create: (_) => MockAIService(),
         ),
 
-        // 2. TẦNG BUSINESS LOGIC PROVIDERS
+        // 2. Providers của 4 thành viên
         ChangeNotifierProvider<VaultProvider>(
           create: (ctx) => VaultProvider(vaultService: ctx.read<VaultService>()),
         ),
@@ -76,7 +61,7 @@ class FPTUSecondBrainApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'FPTU SE Knowledge - Second Brain',
+        title: 'FPTU SE Knowledge - Second Brain Template',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         home: const ShellScreen(),

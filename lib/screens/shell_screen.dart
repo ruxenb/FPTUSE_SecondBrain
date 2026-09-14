@@ -2,240 +2,206 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
-import '../core/constants/app_constants.dart';
 import '../providers/vault_provider.dart';
 import '../providers/note_provider.dart';
-import '../providers/graph_provider.dart';
+import '../providers/ai_provider.dart';
 
-import 'sidebar/sidebar_explorer.dart';
-import 'editor/note_editor_screen.dart';
-import 'ai/ai_chat_panel.dart';
-import 'graph/knowledge_graph_screen.dart';
-
-enum CenterViewMode { editor, graph }
-
-/// Giao diện Shell 3 cột chính của ứng dụng Desktop.
-/// Phụ trách: Member 4
-class ShellScreen extends StatefulWidget {
+/// Khung giao diện chính (Desktop Shell 3 Cột).
+/// Được thiết kế dưới dạng Architecture Template với các placeholder để từng thành viên tự code module của mình.
+/// Phụ trách chính: Member 4
+class ShellScreen extends StatelessWidget {
   const ShellScreen({super.key});
 
   @override
-  State<ShellScreen> createState() => _ShellScreenState();
-}
-
-class _ShellScreenState extends State<ShellScreen> {
-  double _sidebarWidth = AppConstants.defaultSidebarWidth;
-  double _rightPanelWidth = AppConstants.defaultAiPanelWidth;
-  bool _isSidebarVisible = true;
-  bool _isRightPanelVisible = true;
-  CenterViewMode _centerMode = CenterViewMode.editor;
-
-  @override
-  void initState() {
-    super.initState();
-    // Tự động tải dữ liệu Mock ngay khi mở app
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final vaultProvider = context.read<VaultProvider>();
-      final noteProvider = context.read<NoteProvider>();
-      final graphProvider = context.read<GraphProvider>();
-
-      vaultProvider.openVault('/vault').then((_) {
-        // Mở sẵn note đầu tiên mẫu
-        noteProvider.openNote(
-          '/vault/PRM393_Mobile_Programming/Flutter_Architecture.md',
-          vaultRoot: '/vault',
-        );
-        // Tải đồ thị ban đầu
-        graphProvider.loadGraph('/vault');
-      });
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final vaultProvider = context.watch<VaultProvider>();
-    final noteProvider = context.watch<NoteProvider>();
-
     return Scaffold(
-      appBar: _buildAppBar(context, vaultProvider),
+      appBar: AppBar(
+        title: const Row(
+          children: [
+            Icon(Icons.psychology, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)'),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.hub_outlined),
+            tooltip: 'Knowledge Graph (Member 4)',
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Khu vực Task T4.5: Knowledge Graph của Member 4')),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Column(
         children: [
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // CỘT 1: SIDEBAR EXPLORER (MEMBER 1)
-                if (_isSidebarVisible) ...[
-                  SizedBox(
-                    width: _sidebarWidth,
-                    child: const SidebarExplorer(),
-                  ),
-                  _buildResizeHandle(
-                    onDrag: (delta) {
-                      setState(() {
-                        _sidebarWidth = (_sidebarWidth + delta).clamp(
-                          AppConstants.minSidebarWidth,
-                          AppConstants.maxSidebarWidth,
-                        );
-                      });
+                // CỘT 1: MEMBER 1 - SIDEBAR EXPLORER & TREEVIEW (Width: ~260px)
+                Container(
+                  width: 280,
+                  color: AppColors.sidebarBackground,
+                  child: _buildMemberPlaceholder(
+                    context,
+                    memberNumber: 1,
+                    memberName: 'Member 1 (Vault & Filesystem)',
+                    icon: Icons.folder_copy_outlined,
+                    color: Colors.amber,
+                    tasks: const [
+                      'Task T1.4: UI Sidebar TreeView',
+                      'Task T1.5: Context Menu (Tạo, Đổi tên, Xóa)',
+                      'Task T1.6: LocalVaultService (dart:io)',
+                    ],
+                    onAction: () {
+                      context.read<VaultProvider>().openVault('/vault');
                     },
+                    actionLabel: 'Test MockVaultService',
                   ),
-                ],
-
-                // CỘT 2: KHUNG CHÍNH (EDITOR HOẶC GRAPH) (MEMBER 2 & 4)
-                Expanded(
-                  child: _centerMode == CenterViewMode.editor
-                      ? const NoteEditorScreen()
-                      : const KnowledgeGraphScreen(),
                 ),
 
-                // CỘT 3: AI ASSISTANT PANEL (MEMBER 3)
-                if (_isRightPanelVisible) ...[
-                  _buildResizeHandle(
-                    onDrag: (delta) {
-                      setState(() {
-                        _rightPanelWidth = (_rightPanelWidth - delta).clamp(
-                          AppConstants.minAiPanelWidth,
-                          AppConstants.maxAiPanelWidth,
-                        );
-                      });
+                const VerticalDivider(width: 1),
+
+                // CỘT 2: MEMBER 2 - NOTE EDITOR & MARKDOWN
+                Expanded(
+                  child: Container(
+                    color: AppColors.background,
+                    child: _buildMemberPlaceholder(
+                      context,
+                      memberNumber: 2,
+                      memberName: 'Member 2 (Markdown Editor & Note)',
+                      icon: Icons.edit_note_rounded,
+                      color: AppColors.secondary,
+                      tasks: const [
+                        'Task T2.4: UI Note Editor (TextField/Auto-save)',
+                        'Task T2.5: Markdown Preview & [[Wikilinks]]',
+                        'Task T2.6: Backlinks Panel & LocalNoteRepository',
+                      ],
+                      onAction: () {
+                        context.read<NoteProvider>().openNote('/vault/PRM393/Flutter_Architecture.md');
+                      },
+                      actionLabel: 'Test MockNoteRepository',
+                    ),
+                  ),
+                ),
+
+                const VerticalDivider(width: 1),
+
+                // CỘT 3: MEMBER 3 - AI ASSISTANT & QUIZ (Width: ~320px)
+                Container(
+                  width: 320,
+                  color: AppColors.surface,
+                  child: _buildMemberPlaceholder(
+                    context,
+                    memberNumber: 3,
+                    memberName: 'Member 3 (AI Assistant & Quiz)',
+                    icon: Icons.auto_awesome,
+                    color: AppColors.primary,
+                    tasks: const [
+                      'Task T3.4: UI Khung Chat AI (Messages)',
+                      'Task T3.5: Nút "Tóm tắt" & Card Quiz 3 câu',
+                      'Task T3.6: GeminiAIService (google_generative_ai)',
+                    ],
+                    onAction: () {
+                      context.read<AIProvider>().summarizeNote('PRM393', 'Flutter Architecture');
                     },
+                    actionLabel: 'Test MockAIService',
                   ),
-                  SizedBox(
-                    width: _rightPanelWidth,
-                    child: const AIChatPanel(),
-                  ),
-                ],
+                ),
               ],
             ),
           ),
 
-          // THANH TRẠNG THÁI STATUS BAR DƯỚI CÙNG
-          _buildStatusBar(noteProvider),
-        ],
-      ),
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context, VaultProvider vaultProvider) {
-    return AppBar(
-      leading: IconButton(
-        icon: Icon(_isSidebarVisible ? Icons.menu_open : Icons.menu),
-        tooltip: 'Ẩn/Hiện Sidebar',
-        onPressed: () => setState(() => _isSidebarVisible = !_isSidebarVisible),
-      ),
-      title: Row(
-        children: [
+          // THANH STATUS BAR CHÂN TRANG (MEMBER 4)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withAlpha(50),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.primary.withAlpha(100)),
+            height: 26,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            color: AppColors.sidebarBackground,
+            child: const Row(
+              children: [
+                Icon(Icons.desktop_windows, size: 12, color: AppColors.textDisabled),
+                SizedBox(width: 6),
+                Text('Task T4.3: Status Bar & Layout Shell - Member 4', style: TextStyle(fontSize: 11, color: AppColors.textDisabled)),
+                Spacer(),
+                Text('PRM393 - Fall 2026', style: TextStyle(fontSize: 11, color: AppColors.textDisabled)),
+              ],
             ),
-            child: const Text(
-              'FPTU SE BRAIN',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-                letterSpacing: 1,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            vaultProvider.vaultPath ?? 'Chưa chọn Vault',
-            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
         ],
       ),
-      actions: [
-        // Chuyển đổi giữa Editor và Knowledge Graph
-        IconButton(
-          icon: Icon(
-            _centerMode == CenterViewMode.graph ? Icons.edit_note : Icons.hub_outlined,
-            color: _centerMode == CenterViewMode.graph ? AppColors.secondary : AppColors.textSecondary,
-          ),
-          tooltip: _centerMode == CenterViewMode.graph
-              ? 'Chuyển sang Editor'
-              : 'Mở Knowledge Graph',
-          onPressed: () {
-            setState(() {
-              _centerMode = _centerMode == CenterViewMode.editor
-                  ? CenterViewMode.graph
-                  : CenterViewMode.editor;
-            });
-          },
-        ),
-
-        // Ẩn/Hiện Panel AI
-        IconButton(
-          icon: Icon(
-            Icons.auto_awesome,
-            color: _isRightPanelVisible ? AppColors.secondary : AppColors.textDisabled,
-          ),
-          tooltip: 'Ẩn/Hiện AI Assistant',
-          onPressed: () => setState(() => _isRightPanelVisible = !_isRightPanelVisible),
-        ),
-        const SizedBox(width: 8),
-      ],
     );
   }
 
-  Widget _buildResizeHandle({required ValueChanged<double> onDrag}) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragUpdate: (details) => onDrag(details.delta.dx),
-        child: Container(
-          width: 4,
-          color: AppColors.border,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBar(NoteProvider noteProvider) {
-    final note = noteProvider.currentNote;
-    final wordCount = note != null
-        ? note.content.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length
-        : 0;
-
-    return Container(
-      height: 24,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      color: AppColors.sidebarBackground,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            const Icon(Icons.laptop_chromebook, size: 12, color: AppColors.textDisabled),
-            const SizedBox(width: 6),
-            const Text(
-              'Flutter Desktop MVP',
-              style: TextStyle(fontSize: 11, color: AppColors.textDisabled),
+  Widget _buildMemberPlaceholder(
+    BuildContext context, {
+    required int memberNumber,
+    required String memberName,
+    required IconData icon,
+    required Color color,
+    required List<String> tasks,
+    required VoidCallback onAction,
+    required String actionLabel,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: color.withAlpha(40),
+            child: Icon(icon, size: 28, color: color),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            memberName,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceVariant.withAlpha(80),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: AppColors.border),
             ),
-            const SizedBox(width: 24),
-            if (note != null) ...[
-              Text(
-                'Từ: $wordCount | Ký tự: ${note.content.length}',
-                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Liên kết: ${note.outgoingLinks.length} | Backlinks: ${note.backlinks.length}',
-                style: const TextStyle(fontSize: 11, color: AppColors.wikilink),
-              ),
-              const SizedBox(width: 16),
-            ],
-            const Text(
-              'PRM393 - FPT University',
-              style: TextStyle(fontSize: 11, color: AppColors.textDisabled),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: tasks
+                  .map((task) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 3.0),
+                        child: Row(
+                          children: [
+                            Icon(Icons.check_circle_outline, size: 14, color: color),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(task, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                            ),
+                          ],
+                        ),
+                      ))
+                  .toList(),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: onAction,
+            icon: const Icon(Icons.play_arrow, size: 14),
+            label: Text(actionLabel, style: const TextStyle(fontSize: 11)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: color.withAlpha(50),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              side: BorderSide(color: color.withAlpha(120)),
+            ),
+          ),
+        ],
       ),
     );
   }
