@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../contracts/ai_service.dart';
 import '../models/chat_message.dart';
 
-/// Quản lý trạng thái tương tác với AI: Chat, Tóm tắt Note, Tạo Quiz.
+/// Quản lý trạng thái tương tác với AI: Chat, Tóm tắt Note.
 /// [MEMBER 3] sẽ hoàn thiện logic tại đây theo Task T3.3.
 class AIProvider extends ChangeNotifier {
   final AIService aiService;
@@ -35,5 +35,5 @@ class AIProvider extends ChangeNotifier {
     }
   }
 
-  // TODO: [Member 3] Hiện thực hàm generateQuiz(title, content) và sendMessage(prompt)
+  // TODO: [Member 3] Hiện thực hàm sendMessage(prompt)
 }

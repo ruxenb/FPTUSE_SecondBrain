@@ -91,19 +91,19 @@ class ShellScreen extends StatelessWidget {
 
                 const VerticalDivider(width: 1),
 
-                // CỘT 3: MEMBER 3 - AI ASSISTANT & QUIZ (Width: ~320px)
+                // CỘT 3: MEMBER 3 - AI ASSISTANT (Width: ~320px)
                 Container(
                   width: 320,
                   color: AppColors.surface,
                   child: _buildMemberPlaceholder(
                     context,
                     memberNumber: 3,
-                    memberName: 'Member 3 (AI Assistant & Quiz)',
+                    memberName: 'Member 3 (AI Assistant)',
                     icon: Icons.auto_awesome,
                     color: AppColors.primary,
                     tasks: const [
                       'Task T3.4: UI Khung Chat AI (Messages)',
-                      'Task T3.5: Nút "Tóm tắt" & Card Quiz 3 câu',
+                      'Task T3.5: Nút "Tóm tắt Note" & Chat tự do',
                       'Task T3.6: GeminiAIService (google_generative_ai)',
                     ],
                     onAction: () {

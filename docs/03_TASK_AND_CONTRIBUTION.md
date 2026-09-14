@@ -45,16 +45,16 @@
 ---
 
 ### 📌 THÀNH VIÊN 3: TRỢ LÝ TRÍ TUỆ NHÂN TẠO (MEMBER 3)
-* **Trách nhiệm chính:** Tích hợp mô hình Gemini AI, xây dựng khung Chat và tính năng Tóm tắt / Tạo Quiz.
+* **Trách nhiệm chính:** Tích hợp mô hình Gemini AI, xây dựng khung Chat và tính năng Tóm tắt.
 * **Thư mục & Tệp phụ trách chính trên `develop`:** `lib/screens/ai/`, `lib/models/chat_message.dart`, `lib/contracts/ai_service.dart`, `lib/mocks/mock_ai_service.dart`, `lib/services/gemini_ai_service.dart`, `lib/providers/ai_provider.dart`.
 
 | Task ID | Nhiệm vụ chi tiết | Deliverables (Sản phẩm đầu ra) | Tiêu chí nghiệm thu (Acceptance Criteria) |
 | :--- | :--- | :--- | :--- |
-| **T3.1** | Định nghĩa `ChatMessage` & `AIService` contract | `lib/models/chat_message.dart`<br>`lib/contracts/ai_service.dart` | Định nghĩa rõ các phương thức: `summarizeNote`, `generateQuiz`, `sendChatMessage`. |
-| **T3.2** | Viết `MockAIService` | `lib/mocks/mock_ai_service.dart` | Trả về dữ liệu tóm tắt và 3 câu hỏi trắc nghiệm mẫu có trễ 800ms để test UI Day 2. |
+| **T3.1** | Định nghĩa `ChatMessage` & `AIService` contract | `lib/models/chat_message.dart`<br>`lib/contracts/ai_service.dart` | Định nghĩa rõ các phương thức: `summarizeNote`, `sendChatMessage`. |
+| **T3.2** | Viết `MockAIService` | `lib/mocks/mock_ai_service.dart` | Trả về dữ liệu tóm tắt và phản hồi chat mẫu có trễ 800ms để test UI Day 2. |
 | **T3.3** | Xây dựng `AIProvider` | `lib/providers/ai_provider.dart` | Quản lý danh sách tin nhắn chat, cờ `isLoading`, xử lý lỗi Exception khi gọi API. |
 | **T3.4** | Thiết kế UI Khung Chat AI | `lib/screens/ai/ai_chat_panel.dart` | Giao diện tin nhắn hai phía (User/AI), tự động scroll xuống dưới, khung nhập tin nhắn nhanh. |
-| **T3.5** | Xây dựng Action Buttons & Quiz Card | `lib/screens/ai/ai_quiz_card.dart` | 2 nút thao tác nhanh: "⚡ Tóm tắt Note", "📝 Tạo Quiz 3 câu"; Card Quiz có thể bấm chọn/lật đáp án. |
+| **T3.5** | Xây dựng Nút Tóm tắt & Chat UI | `lib/screens/ai/ai_chat_panel.dart` | Nút thao tác nhanh: "⚡ Tóm tắt Note"; Khung chat tương tác hai chiều. |
 | **T3.6** | Hiện thực `GeminiAIService` (Real API) | `lib/services/gemini_ai_service.dart` | Tích hợp thư viện `google_generative_ai`, cấu hình System Prompt tối ưu cho môn học FPTU. |
 
 ---
@@ -82,7 +82,7 @@ Bảng này được sử dụng làm căn cứ tự đánh giá (Peer Review) v
 | :--- | :--- | :---: | :---: | :--- |
 | **Member 1** | Filesystem Explorer & Sidebar Tree | 25 SP | **25%** | Các commit cho `lib/screens/sidebar/` và `local_vault_service.dart`. |
 | **Member 2** | Markdown Editor & Wikilinks Engine | 25 SP | **25%** | Các commit cho `lib/screens/editor/` và `local_note_repository.dart`. |
-| **Member 3** | Gemini AI Assistant & Quiz System | 25 SP | **25%** | Các commit cho `lib/screens/ai/` và `gemini_ai_service.dart`. |
+| **Member 3** | Gemini AI Assistant & Chat System | 25 SP | **25%** | Các commit cho `lib/screens/ai/` và `gemini_ai_service.dart`. |
 | **Member 4** | App Shell Layout & Knowledge Graph | 25 SP | **25%** | Các commit cho `shell_screen.dart`, `knowledge_graph_screen.dart`, theme. |
 | **CẢ NHÓM** | **Tích hợp, Test & Demo (Integration)** | **100 SP** | **100%** | **4 thành viên cùng tham gia Test chéo và bảo vệ đồ án.** |
 

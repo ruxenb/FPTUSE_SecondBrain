@@ -21,7 +21,4 @@ class AppConstants {
       'Bạn là giảng viên ngành SE tại FPT University. Hãy tóm tắt các ý cốt lõi '
       'và từ khóa thi thực hành/lý thuyết của bài ghi chép sau thành 3-5 gạch đầu dòng:';
 
-  static const String defaultQuizPrompt =
-      'Dựa trên nội dung bài học, hãy tạo đúng 3 câu hỏi trắc nghiệm (mỗi câu 4 lựa chọn A, B, C, D) '
-      'kèm đáp án đúng và giải thích ngắn gọn để sinh viên ôn thi:';
 }

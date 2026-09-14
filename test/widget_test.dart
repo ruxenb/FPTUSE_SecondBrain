@@ -19,6 +19,6 @@ void main() {
     // Verify 3 member columns
     expect(find.text('Member 1 (Vault & Filesystem)'), findsOneWidget);
     expect(find.text('Member 2 (Markdown Editor & Note)'), findsOneWidget);
-    expect(find.text('Member 3 (AI Assistant & Quiz)'), findsOneWidget);
+    expect(find.text('Member 3 (AI Assistant)'), findsOneWidget);
   });
 }

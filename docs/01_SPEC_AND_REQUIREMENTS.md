@@ -8,8 +8,6 @@
 * **Tên sản phẩm:** FPTU SE Knowledge — Second Brain for Software Engineering Students.
 * **Mục tiêu:** Xây dựng một ứng dụng Desktop (Windows / macOS) cá nhân hóa việc quản lý tri thức học tập cho sinh viên ngành Kỹ thuật Phần mềm (Software Engineering) tại Đại học FPT. Ứng dụng mô phỏng triết lý "Second Brain" của Obsidian: ghi chép phi tuyến tính (non-linear note-taking), liên kết 2 chiều (bidirectional linking via `[[WikiLinks]]`), trực quan hóa mạng lưới tri thức (Knowledge Graph), và tích hợp trợ lý AI học tập (Gemini API).
 * **Đối tượng sử dụng:** Sinh viên SE cần hệ thống hóa tài liệu các môn học nặng lý thuyết và thực hành (PRM393, PRN231, SWE201, CSD201, OSG202...).
-* **Thời gian hoàn thành:** 2–3 tuần (Lab môn học).
-* **Đội ngũ:** 4 thành viên (đã có nền tảng Web / OOP / Git, tiếp cận Flutter Desktop theo hướng thực chiến).
 
 ---
 
@@ -17,11 +15,10 @@
 
 | Tiêu chí | Ràng buộc kỹ thuật | Giải thích & Lý do |
 | :--- | :--- | :--- |
-| **Nền tảng mục tiêu** | Flutter Desktop (Ưu tiên Windows, hỗ trợ macOS) | Tối ưu trải nghiệm làm việc đa nhiệm trên màn hình lớn của sinh viên. |
+| **Nền tảng mục tiêu** | Flutter Desktop | Tối ưu trải nghiệm làm việc đa nhiệm trên màn hình lớn của sinh viên. |
 | **Lưu trữ dữ liệu** | 100% File Markdown (`.md`) trên ổ cứng cục bộ | **Zero Database**. Dữ liệu thuộc về người dùng, tương thích với Obsidian/VS Code, di chuyển thư mục dễ dàng. |
 | **Quản lý trạng thái** | `Provider` (hoặc `ChangeNotifierProvider`) | Đơn giản, trực quan, phù hợp với người mới học Flutter, tài liệu phong phú. |
-| **Mô hình AI** | Google Gemini API (`google_generative_ai`) | Miễn phí tier sinh viên, tốc độ phản hồi nhanh, hỗ trợ tóm tắt ngữ cảnh học tập tốt. |
-| **Thời hạn triển khai** | 2–3 tuần | Phải áp dụng quy tắc **Mock First** ngay từ Day 2 để 4 người làm song song mà không bị nghẽn (blocking). |
+| **Mô hình AI** | Google Gemini API (`google_generative_ai`) | Miễn phí tier sinh viên, tốc độ phản hồi nhanh, hỗ trợ tóm tắt ngữ cảnh học tập tốt.
 
 ---
 

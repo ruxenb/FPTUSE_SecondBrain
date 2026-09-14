@@ -85,12 +85,12 @@ lib/
 ├── mocks/                             # TẦNG DỮ LIỆU GIẢ LẬP (Mock Implementations - Hoàn thành Day 2)
 │   ├── mock_vault_service.dart        # Trả về cây thư mục môn học giả lập (PRM393, SWE201...)
 │   ├── mock_note_repository.dart      # Lưu trữ in-memory Map các bài Note kèm liên kết
-│   └── mock_ai_service.dart           # Phản hồi tức thì tóm tắt và Quiz mà không tốn token/API Key
+│   └── mock_ai_service.dart           # Phản hồi tức thì tóm tắt mà không tốn token/API Key
 │
 ├── providers/                         # TẦNG QUẢN LÝ TRẠNG THÁI (Business Logic / State)
 │   ├── vault_provider.dart            # Trạng thái cây thư mục, đường dẫn Vault đang chọn (Member 1)
 │   ├── note_provider.dart             # Trạng thái Note đang mở, dirty state, backlinks (Member 2)
-│   ├── ai_provider.dart               # Lịch sử chat, trạng thái loading AI, quiz state (Member 3)
+│   ├── ai_provider.dart               # Lịch sử chat, trạng thái loading AI (Member 3)
 │   └── graph_provider.dart            # Thuật toán chuyển đổi danh sách Note thành Nodes & Edges (Member 4)
 │
 └── screens/                           # TẦNG GIAO DIỆN (UI Presentation)
@@ -102,8 +102,7 @@ lib/
     │   ├── note_editor_screen.dart    # Khung soạn thảo Markdown và Split Preview (Member 2)
     │   └── backlinks_panel.dart       # Danh sách các note trỏ tới note hiện tại (Member 2)
     ├── ai/
-    │   ├── ai_chat_panel.dart         # Khung chat và bong bóng hội thoại AI (Member 3)
-    │   └── ai_quiz_card.dart          # Thẻ trắc nghiệm 3 câu hỏi ôn thi (Member 3)
+    │   └── ai_chat_panel.dart         # Khung chat và bong bóng hội thoại AI (Member 3)
     └── graph/
         └── knowledge_graph_screen.dart# Màn hình mạng lưới liên kết bằng GraphView (Member 4)
 ```
@@ -119,7 +118,7 @@ flowchart TD
     subgraph UI_Layer ["Tầng Giao Diện (Presentation Layer)"]
         W1[Sidebar TreeView\nMember 1]
         W2[Markdown Editor & Preview\nMember 2]
-        W3[AI Chat & Quiz Card\nMember 3]
+        W3[AI Chat Panel\nMember 3]
         W4[Knowledge Graph Screen\nMember 4]
     end
 
@@ -255,20 +254,18 @@ class Note {
 ```dart
 enum MessageSender { user, ai, system }
 
-/// Đại diện cho một tin nhắn trong khung Chat AI hoặc phản hồi Quiz/Summary.
+/// Đại diện cho một tin nhắn trong khung Chat AI hoặc phản hồi Summary.
 class ChatMessage {
   final String id;
   final MessageSender sender;
   final String text;
   final DateTime timestamp;
-  final bool isQuiz;
 
   ChatMessage({
     required this.id,
     required this.sender,
     required this.text,
     DateTime? timestamp,
-    this.isQuiz = false,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 ```
@@ -331,9 +328,6 @@ import '../models/chat_message.dart';
 abstract class AIService {
   /// Tóm tắt nội dung bài note thành 3-5 gạch đầu dòng cốt lõi
   Future<String> summarizeNote(String noteTitle, String noteContent);
-
-  /// Sinh ra 3 câu hỏi trắc nghiệm ôn tập kiến thức từ bài note
-  Future<String> generateQuiz(String noteTitle, String noteContent);
 
   /// Trò chuyện tự do với AI theo ngữ cảnh bài học
   Future<String> sendChatMessage(String prompt, List<ChatMessage> conversationHistory);
@@ -552,32 +546,6 @@ class MockAIService implements AIService {
 * **State Management:** Khuyến nghị dùng Provider để tối ưu vòng đời widget.
 * **Liên kết tri thức:** Sử dụng cú pháp `[[WikiLinks]]` để định hình mạng lưới Second Brain.
 * **Lưu ý thi Lab:** Đảm bảo mock implementations hoạt động ổn định trước khi cắm real API.''';
-  }
-
-  @override
-  Future<String> generateQuiz(String noteTitle, String noteContent) async {
-    await Future.delayed(const Duration(milliseconds: 900));
-    return '''### 📝 Bộ 3 Câu Hỏi Ôn Tập: `$noteTitle`
-
-**Câu 1:** Trong kiến trúc Clean Lean của ứng dụng, Widget UI được phép gọi trực tiếp package nào?
-- A. `dart:io`
-- B. `google_generative_ai`
-- C. `Provider` (hoặc ChangeNotifier)  ✅ *(Chính xác: Giúp bảo đảm tính lỏng lẻo của mã nguồn)*
-- D. Không được gọi bất kỳ package nào
-
----
-**Câu 2:** Mục đích chính của việc sử dụng cú pháp `[[...]]` trong ứng dụng là gì?
-- A. Định dạng in đậm văn bản
-- B. Tạo liên kết nội bộ 2 chiều giữa các bài ghi chép  ✅
-- C. Chèn ảnh từ ổ cứng
-- D. Gửi dữ liệu lên máy chủ đám mây
-
----
-**Câu 3:** Tại sao nhóm sinh viên cần tạo lớp `MockService` ngay từ Day 2?
-- A. Để hoàn thành chỉ tiêu code dòng lệnh
-- B. Để có thể phát triển giao diện UI song song mà không phụ thuộc API thật  ✅
-- C. Vì Flutter bắt buộc phải có Mock
-- D. Để tăng dung lượng file nộp bài''';
   }
 
   @override

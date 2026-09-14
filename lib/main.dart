@@ -17,9 +17,17 @@ import 'providers/note_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/graph_provider.dart';
 
+// Real Implementations (uncomment khi hoàn thành Tuần 2)
+// import 'services/local_vault_service.dart';
+// import 'services/local_note_repository.dart';
+// import 'services/gemini_ai_service.dart';
+
 // Core & UI Shell
 import 'core/theme/app_theme.dart';
 import 'screens/shell_screen.dart';
+
+/// CỜ ĐIỀU KHIỂN: `true` = dùng Mock (Day 2-7), `false` = dùng Real Service (Tuần 2+).
+const bool kUseMock = true;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,15 +41,15 @@ class FPTUSecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. Contracts & Services (Hiện tại dùng Mocks, Tuần 2 từng bạn tạo file Real Service thay thế)
+        // 1. Contracts & Services (Hiện tại dùng Mocks, Tuần 2 thay bằng Real Service)
         Provider<VaultService>(
-          create: (_) => MockVaultService(),
+          create: (_) => kUseMock ? MockVaultService() : MockVaultService(), // TODO: Thay vế sau bằng LocalVaultService()
         ),
         Provider<NoteRepository>(
-          create: (_) => MockNoteRepository(),
+          create: (_) => kUseMock ? MockNoteRepository() : MockNoteRepository(), // TODO: Thay vế sau bằng LocalNoteRepository()
         ),
         Provider<AIService>(
-          create: (_) => MockAIService(),
+          create: (_) => kUseMock ? MockAIService() : MockAIService(), // TODO: Thay vế sau bằng GeminiAIService(apiKey: '...')
         ),
 
         // 2. Providers của 4 thành viên
