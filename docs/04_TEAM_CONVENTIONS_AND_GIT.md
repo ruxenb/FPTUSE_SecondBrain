@@ -3,37 +3,51 @@
 
 ---
 
-## 1. CHIẾN LƯỢC QUẢN LÝ NHÁNH GIT (GITFLOW ĐƠN GIẢN HÓA)
+## 1. CHIẾN LƯỢC QUẢN LÝ NHÁNH GIT (CHỈ 2 NHÁNH: `main` & `develop`)
 
-Để tránh tối đa rủi ro hỏng mã nguồn trước ngày bảo vệ, nhóm áp dụng mô hình Git 3 cấp độ:
+Để đơn giản hóa tối đa quy trình cho nhóm sinh viên, không phát sinh chi phí quản lý nhánh rườm rà, nhóm thống nhất **chỉ sử dụng đúng 2 nhánh**:
 
 ```
-[main]          <─── (Chỉ merge khi hoàn thành MVP, dùng để chấm điểm & demo)
+[main]          <─── (Bản phát hành ổn định, chỉ merge từ develop khi hoàn thành MVP để nộp/demo)
   ▲
-  │ (Pull Request vào cuối Tuần 2 & Tuần 3 sau khi test kỹ)
-[develop]       <─── (Nhánh tích hợp chung của 4 người, luôn chạy được)
-  ▲
-  ├────── feature/vault-fs           (Member 1: Filesystem & Sidebar)
-  ├────── feature/editor-md          (Member 2: Markdown & Wikilinks)
-  ├────── feature/ai-gemini          (Member 3: Gemini AI & Quiz)
-  └────── feature/app-shell-graph    (Member 4: Layout Shell & GraphView)
+  │ (Merge vào cuối tuần / ngày bảo vệ)
+  │
+[develop]       <─── (NHÁNH LÀM VIỆC CHÍNH CỦA CẢ 4 THÀNH VIÊN)
+                      Cả 4 người cùng commit và push/pull trực tiếp trên develop
 ```
 
-### Các nguyên tắc vàng (Golden Rules):
-1. **Tuyệt đối KHÔNG commit trực tiếp lên `main` hoặc `develop`**.
-2. Mọi tính năng cá nhân đều xuất phát từ `develop`:
+### Quy trình làm việc hàng ngày của 4 thành viên trên `develop`:
+
+1. **Đầu buổi làm việc:** Luôn kéo code mới nhất của các bạn về:
    ```bash
    git checkout develop
    git pull origin develop
-   git checkout -b feature/ten-tinh-nang
    ```
-3. Luôn cập nhật code mới nhất từ `develop` về nhánh cá nhân trước khi mở Pull Request:
+
+2. **Trong khi code:** Từng người chỉ sửa các file thuộc phân hệ của mình theo cấu trúc thư mục đã chia sẵn (ví dụ: Member 1 sửa trong `screens/sidebar/`, Member 2 sửa trong `screens/editor/`...). Việc này **triệt tiêu 95% nguy cơ conflict**.
+
+3. **Trước khi commit & push:**
    ```bash
-   git checkout feature/ten-tinh-nang
-   git fetch origin
-   git merge origin/develop
-   # Giải quyết conflict cục bộ (nếu có), chạy 'flutter run' kiểm tra ok rồi mới push
-   git push origin feature/ten-tinh-nang
+   # Bước 1: Kiểm tra lỗi cú pháp và chạy test
+   flutter analyze
+   flutter test
+
+   # Bước 2: Commit mã nguồn
+   git add .
+   git commit -m "feat(module): mo ta thay doi"
+
+   # Bước 3: Kéo code mới về trước khi push để xử lý conflict (nếu có)
+   git pull origin develop
+
+   # Bước 4: Đẩy lên remote
+   git push origin develop
+   ```
+
+4. **Chuyển giao lên `main`:** Chỉ thực hiện khi cả nhóm họp thống nhất chốt phiên bản chạy demo mượt mà không lỗi:
+   ```bash
+   git checkout main
+   git merge develop
+   git push origin main
    ```
 
 ---

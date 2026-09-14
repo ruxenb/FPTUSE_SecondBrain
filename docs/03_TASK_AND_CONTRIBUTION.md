@@ -16,7 +16,7 @@
 
 ### 📌 THÀNH VIÊN 1: HỆ THỐNG TỆP TIN & KHÁM PHÁ VAULT (MEMBER 1)
 * **Trách nhiệm chính:** Quản lý toàn bộ thao tác Filesystem trên ổ đĩa máy tính và Sidebar điều hướng.
-* **Nhánh Git phụ trách:** `feature/vault-fs`
+* **Thư mục & Tệp phụ trách chính trên `develop`:** `lib/screens/sidebar/`, `lib/models/vault_item.dart`, `lib/contracts/vault_service.dart`, `lib/mocks/mock_vault_service.dart`, `lib/services/local_vault_service.dart`, `lib/providers/vault_provider.dart`.
 
 | Task ID | Nhiệm vụ chi tiết | Deliverables (Sản phẩm đầu ra) | Tiêu chí nghiệm thu (Acceptance Criteria) |
 | :--- | :--- | :--- | :--- |
@@ -31,7 +31,7 @@
 
 ### 📌 THÀNH VIÊN 2: BÀI GHI CHÉP & LIÊN KẾT TRI THỨC (MEMBER 2)
 * **Trách nhiệm chính:** Quản lý nội dung Markdown, phân tích cú pháp liên kết hai chiều `[[...]]` và Backlinks.
-* **Nhánh Git phụ trách:** `feature/editor-md`
+* **Thư mục & Tệp phụ trách chính trên `develop`:** `lib/screens/editor/`, `lib/models/note.dart`, `lib/contracts/note_repository.dart`, `lib/mocks/mock_note_repository.dart`, `lib/services/local_note_repository.dart`, `lib/providers/note_provider.dart`.
 
 | Task ID | Nhiệm vụ chi tiết | Deliverables (Sản phẩm đầu ra) | Tiêu chí nghiệm thu (Acceptance Criteria) |
 | :--- | :--- | :--- | :--- |
@@ -46,7 +46,7 @@
 
 ### 📌 THÀNH VIÊN 3: TRỢ LÝ TRÍ TUỆ NHÂN TẠO (MEMBER 3)
 * **Trách nhiệm chính:** Tích hợp mô hình Gemini AI, xây dựng khung Chat và tính năng Tóm tắt / Tạo Quiz.
-* **Nhánh Git phụ trách:** `feature/ai-gemini`
+* **Thư mục & Tệp phụ trách chính trên `develop`:** `lib/screens/ai/`, `lib/models/chat_message.dart`, `lib/contracts/ai_service.dart`, `lib/mocks/mock_ai_service.dart`, `lib/services/gemini_ai_service.dart`, `lib/providers/ai_provider.dart`.
 
 | Task ID | Nhiệm vụ chi tiết | Deliverables (Sản phẩm đầu ra) | Tiêu chí nghiệm thu (Acceptance Criteria) |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +61,7 @@
 
 ### 📌 THÀNH VIÊN 4: KHUNG GIAO DIỆN SHELL & ĐỒ THỊ LIÊN KẾT (MEMBER 4)
 * **Trách nhiệm chính:** Bố cục tổng thể 3 cột Resizable, App Theme, Status Bar và trực quan hóa Knowledge Graph.
-* **Nhánh Git phụ trách:** `feature/app-shell-graph`
+* **Thư mục & Tệp phụ trách chính trên `develop`:** `lib/screens/shell_screen.dart`, `lib/screens/graph/`, `lib/providers/graph_provider.dart`, `lib/core/`, `lib/main.dart`.
 
 | Task ID | Nhiệm vụ chi tiết | Deliverables (Sản phẩm đầu ra) | Tiêu chí nghiệm thu (Acceptance Criteria) |
 | :--- | :--- | :--- | :--- |
@@ -78,12 +78,12 @@
 
 Bảng này được sử dụng làm căn cứ tự đánh giá (Peer Review) và báo cáo minh bạch cho Giảng viên:
 
-| Thành viên | Phân hệ phụ trách (Module) | Điểm Story Points (Ước lượng) | Tỷ lệ đóng góp mục tiêu | Minh chứng đánh giá (Evidence) |
+| Thành viên | Phân hệ phụ trách (Module) | Điểm Story Points (Ước lượng) | Tỷ lệ đóng góp mục tiêu | Minh chứng đánh giá (Evidence trên `develop`) |
 | :--- | :--- | :---: | :---: | :--- |
-| **Member 1** | Filesystem Explorer & Sidebar Tree | 25 SP | **25%** | Các PR trên `feature/vault-fs`, các file trong `lib/screens/sidebar/` và `local_vault_service.dart`. |
-| **Member 2** | Markdown Editor & Wikilinks Engine | 25 SP | **25%** | Các PR trên `feature/editor-md`, các file trong `lib/screens/editor/` và `local_note_repository.dart`. |
-| **Member 3** | Gemini AI Assistant & Quiz System | 25 SP | **25%** | Các PR trên `feature/ai-gemini`, các file trong `lib/screens/ai/` và `gemini_ai_service.dart`. |
-| **Member 4** | App Shell Layout & Knowledge Graph | 25 SP | **25%** | Các PR trên `feature/app-shell-graph`, `shell_screen.dart`, `knowledge_graph_screen.dart`, theme. |
+| **Member 1** | Filesystem Explorer & Sidebar Tree | 25 SP | **25%** | Các commit cho `lib/screens/sidebar/` và `local_vault_service.dart`. |
+| **Member 2** | Markdown Editor & Wikilinks Engine | 25 SP | **25%** | Các commit cho `lib/screens/editor/` và `local_note_repository.dart`. |
+| **Member 3** | Gemini AI Assistant & Quiz System | 25 SP | **25%** | Các commit cho `lib/screens/ai/` và `gemini_ai_service.dart`. |
+| **Member 4** | App Shell Layout & Knowledge Graph | 25 SP | **25%** | Các commit cho `shell_screen.dart`, `knowledge_graph_screen.dart`, theme. |
 | **CẢ NHÓM** | **Tích hợp, Test & Demo (Integration)** | **100 SP** | **100%** | **4 thành viên cùng tham gia Test chéo và bảo vệ đồ án.** |
 
 ---
