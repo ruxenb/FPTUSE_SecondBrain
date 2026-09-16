@@ -4,18 +4,20 @@ class Note {
   final String path;
   final String title;
   final String content;
-  final List<String> outgoingLinks; // Danh sách [[Tên Note]] mà note này trỏ tới
-  final List<String> backlinks;     // Danh sách các note khác trích dẫn tới note này
+  final List<String> outgoingLinks;
+  final List<String> backlinks;
   final DateTime lastModified;
 
   Note({
     required this.path,
     required this.title,
     required this.content,
-    this.outgoingLinks = const [],
-    this.backlinks = const [],
+    List<String> outgoingLinks = const [],
+    List<String> backlinks = const [],
     DateTime? lastModified,
-  }) : lastModified = lastModified ?? DateTime.now();
+  }) : outgoingLinks = List.unmodifiable(outgoingLinks),
+       backlinks = List.unmodifiable(backlinks),
+       lastModified = lastModified ?? DateTime.now();
 
   Note copyWith({
     String? path,

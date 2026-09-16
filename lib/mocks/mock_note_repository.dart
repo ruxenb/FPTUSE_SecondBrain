@@ -1,3 +1,6 @@
+import 'package:path/path.dart' as path;
+
+import '../core/utils/wikilink_parser.dart';
 import '../contracts/note_repository.dart';
 import '../models/note.dart';
 
@@ -18,7 +21,11 @@ Trong môn PRM393, việc phân tách các tầng kiến trúc là bắt buộc:
 Tham khảo thêm quy trình phát triển Agile tại [[Agile_Scrum_Overview]].
 Mô hình đồ thị tri thức dựa trên [[Graph_Algorithms]].
 ''',
-      outgoingLinks: ['Provider_Pattern', 'Agile_Scrum_Overview', 'Graph_Algorithms'],
+      outgoingLinks: [
+        'Provider_Pattern',
+        'Agile_Scrum_Overview',
+        'Graph_Algorithms',
+      ],
       backlinks: ['Quick_Ideas', 'Provider_Pattern'],
     ),
     '/vault/PRM393_Mobile_Programming/Provider_Pattern.md': Note(
@@ -76,7 +83,7 @@ Ghi chú ngắn: Cần tối ưu hiệu năng render markdown khi xem [[Flutter_
     if (_memoryNotes.containsKey(filePath)) {
       return _memoryNotes[filePath]!;
     }
-    final title = filePath.split('/').last.replaceAll('.md', '');
+    final title = path.basenameWithoutExtension(filePath);
     return Note(
       path: filePath,
       title: title,
@@ -101,23 +108,20 @@ Ghi chú ngắn: Cần tối ưu hiệu năng render markdown khi xem [[Flutter_
 
   @override
   List<String> extractWikilinks(String markdownContent) {
-    final regex = RegExp(r'\[\[(.*?)\]\]');
-    final matches = regex.allMatches(markdownContent);
-    return matches
-        .map((m) => m.group(1)?.trim() ?? '')
-        .where((s) => s.isNotEmpty)
-        .toSet()
-        .toList();
+    return WikilinkParser.extract(markdownContent);
   }
 
   @override
-  Future<List<String>> getBacklinksForNote(String noteTitle, String vaultRootPath) async {
+  Future<List<String>> getBacklinksForNote(
+    String noteTitle,
+    String vaultRootPath,
+  ) async {
     await Future.delayed(const Duration(milliseconds: 80));
     final backlinks = <String>[];
     for (final entry in _memoryNotes.entries) {
-      if (entry.value.title.toLowerCase() != noteTitle.toLowerCase()) {
+      if (!WikilinkParser.titlesEqual(entry.value.title, noteTitle)) {
         final links = extractWikilinks(entry.value.content);
-        if (links.any((link) => link.toLowerCase() == noteTitle.toLowerCase())) {
+        if (links.any((link) => WikilinkParser.titlesEqual(link, noteTitle))) {
           backlinks.add(entry.value.title);
         }
       }
