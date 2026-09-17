@@ -106,6 +106,35 @@ class NoteProvider extends ChangeNotifier {
     await _saveCurrentNote();
   }
 
+  /// Lưu hết các thay đổi đang chờ rồi mới đóng note hiện tại.
+  /// Trả về false và giữ nguyên note nếu bất kỳ lần lưu nào thất bại.
+  Future<bool> closeCurrentNoteSafely() async {
+    _autoSaveTimer?.cancel();
+
+    while (true) {
+      final activeSave = _activeSave;
+      if (activeSave != null) {
+        if (!await activeSave) {
+          return false;
+        }
+        continue;
+      }
+
+      if (_currentNote == null) {
+        return true;
+      }
+      if (_isDirty) {
+        if (!await _saveCurrentNote()) {
+          return false;
+        }
+        continue;
+      }
+
+      clearCurrentNote();
+      return true;
+    }
+  }
+
   /// Đóng note đang mở, ví dụ khi file tương ứng đã bị xóa khỏi Vault.
   void clearCurrentNote() {
     _autoSaveTimer?.cancel();

@@ -43,8 +43,30 @@ class VaultProvider extends ChangeNotifier {
   Future<bool> createFolder(String parentPath, String name) =>
       _mutate(() => vaultService.createFolder(parentPath, name));
 
-  Future<bool> createNote(String parentPath, String name) =>
-      _mutate(() => vaultService.createNote(parentPath, name));
+  Future<VaultItem?> createNote(String parentPath, String name) async {
+    final vaultPath = _vaultPath;
+    if (vaultPath == null) {
+      _errorMessage = 'Không thể cập nhật Vault: Chưa có Vault nào được mở.';
+      notifyListeners();
+      return null;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final createdItem = await vaultService.createNote(parentPath, name);
+      _rootItem = await vaultService.loadVaultHierarchy(vaultPath);
+      return createdItem;
+    } catch (error) {
+      _errorMessage = 'Không thể cập nhật Vault: $error';
+      debugPrint('Error creating note: $error');
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 
   Future<bool> renameItem(String oldPath, String newName) =>
       _mutate(() => vaultService.renameItem(oldPath, newName));

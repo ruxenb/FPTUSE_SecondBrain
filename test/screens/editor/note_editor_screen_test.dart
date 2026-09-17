@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fptu_se_second_brain/contracts/note_repository.dart';
+import 'package:fptu_se_second_brain/core/utils/wikilink_parser.dart';
 import 'package:fptu_se_second_brain/mocks/mock_note_repository.dart';
+import 'package:fptu_se_second_brain/models/note.dart';
 import 'package:fptu_se_second_brain/providers/note_provider.dart';
 import 'package:fptu_se_second_brain/screens/editor/note_editor_screen.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +13,12 @@ void main() {
   const flutterArchitecturePath =
       '/vault/PRM393_Mobile_Programming/Flutter_Architecture.md';
 
-  Future<NoteProvider> pumpEditor(WidgetTester tester) async {
+  Future<NoteProvider> pumpEditor(
+    WidgetTester tester, {
+    NoteRepository? noteRepository,
+    String initialPath = flutterArchitecturePath,
+    MissingNoteCreator? onCreateMissingNote,
+  }) async {
     tester.view.physicalSize = const Size(1280, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(() {
@@ -19,7 +26,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final repository = MockNoteRepository();
+    final repository = noteRepository ?? MockNoteRepository();
     final provider = NoteProvider(noteRepository: repository);
     addTearDown(provider.dispose);
 
@@ -29,13 +36,14 @@ void main() {
           Provider<NoteRepository>.value(value: repository),
           ChangeNotifierProvider<NoteProvider>.value(value: provider),
         ],
-        child: const MaterialApp(home: Scaffold(body: NoteEditorScreen())),
+        child: MaterialApp(
+          home: Scaffold(
+            body: NoteEditorScreen(onCreateMissingNote: onCreateMissingNote),
+          ),
+        ),
       ),
     );
-    final openNote = provider.openNote(
-      flutterArchitecturePath,
-      vaultRoot: '/vault',
-    );
+    final openNote = provider.openNote(initialPath, vaultRoot: '/vault');
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pump(const Duration(milliseconds: 120));
     await openNote;
@@ -98,4 +106,117 @@ void main() {
     expect(provider.isDirty, isFalse);
     expect(find.text('Saved'), findsOneWidget);
   });
+
+  testWidgets('creates a missing Wiki-link target and opens returned path', (
+    tester,
+  ) async {
+    final repository = _MissingLinkRepository();
+    final requestedTitles = <String>[];
+    final provider = await pumpEditor(
+      tester,
+      noteRepository: repository,
+      initialPath: _MissingLinkRepository.sourcePath,
+      onCreateMissingNote: (title) async {
+        requestedTitles.add(title);
+        return _MissingLinkRepository.createdPath;
+      },
+    );
+
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('markdown-editor')), findsNothing);
+    await tester.tap(find.text('MissingNote', findRichText: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Note not found'), findsOneWidget);
+    await tester.tap(find.text('Create note'));
+    await tester.pumpAndSettle();
+
+    expect(requestedTitles, ['MissingNote']);
+    expect(
+      repository.requestedPaths,
+      contains(_MissingLinkRepository.createdPath),
+    );
+    expect(provider.currentNote?.path, _MissingLinkRepository.createdPath);
+    expect(find.text('MissingNote'), findsWidgets);
+  });
+
+  testWidgets('cancelling missing Wiki-link dialog does not create a note', (
+    tester,
+  ) async {
+    final repository = _MissingLinkRepository();
+    final requestedTitles = <String>[];
+    final provider = await pumpEditor(
+      tester,
+      noteRepository: repository,
+      initialPath: _MissingLinkRepository.sourcePath,
+      onCreateMissingNote: (title) async {
+        requestedTitles.add(title);
+        return _MissingLinkRepository.createdPath;
+      },
+    );
+
+    await tester.tap(find.text('Preview'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('MissingNote', findRichText: true));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    expect(requestedTitles, isEmpty);
+    expect(
+      repository.requestedPaths,
+      isNot(contains(_MissingLinkRepository.createdPath)),
+    );
+    expect(provider.currentNote?.path, _MissingLinkRepository.sourcePath);
+  });
+}
+
+class _MissingLinkRepository implements NoteRepository {
+  static const sourcePath = '/vault/Course/Source.md';
+  static const createdPath = '/vault/Course/MissingNote.md';
+
+  final requestedPaths = <String>[];
+
+  @override
+  List<String> extractWikilinks(String markdownContent) =>
+      WikilinkParser.extract(markdownContent);
+
+  @override
+  Future<List<Note>> getAllNotes(String vaultRootPath) async => [
+    Note(
+      path: sourcePath,
+      title: 'Source',
+      content: '# Source\n\n[[MissingNote]]',
+      outgoingLinks: const ['MissingNote'],
+    ),
+  ];
+
+  @override
+  Future<List<String>> getBacklinksForNote(
+    String noteTitle,
+    String vaultRootPath,
+  ) async => const [];
+
+  @override
+  Future<Note> getNote(String filePath) async {
+    requestedPaths.add(filePath);
+    if (filePath == createdPath) {
+      return Note(
+        path: createdPath,
+        title: 'MissingNote',
+        content: '# MissingNote\n',
+        outgoingLinks: const [],
+      );
+    }
+    return Note(
+      path: sourcePath,
+      title: 'Source',
+      content: '# Source\n\n[[MissingNote]]',
+      outgoingLinks: const ['MissingNote'],
+    );
+  }
+
+  @override
+  Future<void> saveNote(Note note) async {}
 }

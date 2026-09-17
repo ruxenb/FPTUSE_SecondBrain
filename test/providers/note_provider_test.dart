@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fptu_se_second_brain/contracts/note_repository.dart';
 import 'package:fptu_se_second_brain/core/utils/wikilink_parser.dart';
@@ -95,6 +97,57 @@ void main() {
     expect(provider.isDirty, isTrue);
     expect(provider.errorMessage, contains('Could not save note'));
   });
+
+  test('safe close saves a dirty note before clearing it', () async {
+    await provider.openNote(_FakeNoteRepository.notePath);
+    provider.updateContent('Content saved before close');
+
+    final closed = await provider.closeCurrentNoteSafely();
+
+    expect(closed, isTrue);
+    expect(repository.savedNotes.single.content, 'Content saved before close');
+    expect(provider.currentNote, isNull);
+    expect(provider.isDirty, isFalse);
+  });
+
+  test('safe close retains dirty content when saving fails', () async {
+    await provider.openNote(_FakeNoteRepository.notePath);
+    provider.updateContent('Content that must remain open');
+    repository.saveNoteError = StateError('disk write failed');
+
+    final closed = await provider.closeCurrentNoteSafely();
+
+    expect(closed, isFalse);
+    expect(provider.currentNote?.path, _FakeNoteRepository.notePath);
+    expect(provider.currentNote?.content, 'Content that must remain open');
+    expect(provider.isDirty, isTrue);
+    expect(provider.errorMessage, contains('Could not save note'));
+  });
+
+  test('safe close waits for active save and flushes newer content', () async {
+    await provider.openNote(_FakeNoteRepository.notePath);
+    repository.saveGate = Completer<void>();
+    provider.updateContent('First snapshot');
+
+    final activeSave = provider.saveCurrentNote();
+    await Future<void>.delayed(Duration.zero);
+    expect(provider.isSaving, isTrue);
+
+    final closeFuture = provider.closeCurrentNoteSafely();
+    provider.updateContent('Newer snapshot during save');
+    expect(provider.currentNote, isNotNull);
+
+    repository.saveGate!.complete();
+    await activeSave;
+    final closed = await closeFuture;
+
+    expect(closed, isTrue);
+    expect(repository.savedNotes, hasLength(2));
+    expect(repository.savedNotes.first.content, 'First snapshot');
+    expect(repository.savedNotes.last.content, 'Newer snapshot during save');
+    expect(provider.currentNote, isNull);
+    expect(provider.isSaving, isFalse);
+  });
 }
 
 class _FakeNoteRepository implements NoteRepository {
@@ -107,6 +160,7 @@ class _FakeNoteRepository implements NoteRepository {
   List<String> backlinks = const [];
   Object? getNoteError;
   Object? saveNoteError;
+  Completer<void>? saveGate;
 
   @override
   List<String> extractWikilinks(String markdownContent) {
@@ -140,6 +194,7 @@ class _FakeNoteRepository implements NoteRepository {
 
   @override
   Future<void> saveNote(Note note) async {
+    await saveGate?.future;
     if (saveNoteError != null) {
       throw saveNoteError!;
     }
