@@ -41,12 +41,24 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
     );
     if (name == null || !mounted) return;
     final vault = context.read<VaultProvider>();
-    final success = folder
-        ? await vault.createFolder(parentPath, name)
-        : await vault.createNote(parentPath, name);
+    if (folder) {
+      final success = await vault.createFolder(parentPath, name);
+      if (!mounted) return;
+      if (!success) {
+        _showMessage(vault.errorMessage ?? 'Không thể tạo thư mục.');
+        return;
+      }
+      setState(() => _expandedPaths.add(parentPath));
+      return;
+    }
+
+    final createdItem = await vault.createNote(parentPath, name);
     if (!mounted) return;
-    if (!success) _showMessage(vault.errorMessage ?? 'Không thể tạo mục mới.');
-    if (success && folder) setState(() => _expandedPaths.add(parentPath));
+    if (createdItem == null) {
+      _showMessage(vault.errorMessage ?? 'Không thể tạo note.');
+      return;
+    }
+    await context.read<NoteProvider>().openNote(createdItem.path);
   }
 
   Future<void> _rename(VaultItem item) async {
@@ -64,7 +76,16 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
         openedPath != null &&
         (openedPath == item.path ||
             (item.isDirectory && path.isWithin(item.path, openedPath)));
-    if (affectsOpenNote) await noteProvider.saveCurrentNote();
+    if (affectsOpenNote) {
+      final closed = await noteProvider.closeCurrentNoteSafely();
+      if (!mounted) return;
+      if (!closed) {
+        _showMessage(
+          noteProvider.errorMessage ?? 'Không thể lưu note trước khi đổi tên.',
+        );
+        return;
+      }
+    }
     if (!mounted) return;
     final vault = context.read<VaultProvider>();
     final success = await vault.renameItem(item.path, name);
@@ -118,6 +139,16 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
         openedPath != null &&
         (openedPath == item.path ||
             (item.isDirectory && path.isWithin(item.path, openedPath)));
+    if (affectsOpenNote) {
+      final closed = await noteProvider.closeCurrentNoteSafely();
+      if (!mounted) return;
+      if (!closed) {
+        _showMessage(
+          noteProvider.errorMessage ?? 'Không thể lưu note trước khi xóa.',
+        );
+        return;
+      }
+    }
     final vault = context.read<VaultProvider>();
     final success = await vault.deleteItem(item.path);
     if (!mounted) return;
@@ -125,7 +156,6 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
       _showMessage(vault.errorMessage ?? 'Không thể xóa.');
       return;
     }
-    if (affectsOpenNote) noteProvider.clearCurrentNote();
   }
 
   Future<String?> _askForName({
@@ -133,19 +163,20 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
     required String label,
     String initialValue = '',
   }) async {
-    final controller = TextEditingController(text: initialValue);
+    var value = initialValue;
     final result = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(title),
-        content: TextField(
-          controller: controller,
+        content: TextFormField(
+          initialValue: initialValue,
           autofocus: true,
           decoration: InputDecoration(
             labelText: label,
             hintText: 'Không dùng \\ / : * ? " < > |',
           ),
-          onSubmitted: (value) => Navigator.pop(dialogContext, value),
+          onChanged: (nextValue) => value = nextValue,
+          onFieldSubmitted: (value) => Navigator.pop(dialogContext, value),
         ),
         actions: [
           TextButton(
@@ -153,13 +184,12 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
             child: const Text('Hủy'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            onPressed: () => Navigator.pop(dialogContext, value),
             child: const Text('Xác nhận'),
           ),
         ],
       ),
     );
-    controller.dispose();
     return result?.trim();
   }
 

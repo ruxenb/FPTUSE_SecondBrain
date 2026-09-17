@@ -11,8 +11,12 @@ import 'widgets/markdown_preview.dart';
 
 enum EditorView { edit, preview, split }
 
+typedef MissingNoteCreator = Future<String?> Function(String title);
+
 class NoteEditorScreen extends StatefulWidget {
-  const NoteEditorScreen({super.key});
+  final MissingNoteCreator? onCreateMissingNote;
+
+  const NoteEditorScreen({this.onCreateMissingNote, super.key});
 
   @override
   State<NoteEditorScreen> createState() => _NoteEditorScreenState();
@@ -166,30 +170,47 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       return;
     }
 
-    await showDialog<void>(
+    final shouldCreate = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Note not found'),
         content: Text('"$title" does not exist in the current Vault.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Close'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(this.context).showSnackBar(
-                SnackBar(
-                  content: Text('Create-note flow requested for "$title".'),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Create note'),
           ),
         ],
       ),
     );
+    if (shouldCreate != true || !mounted) {
+      return;
+    }
+
+    final createMissingNote = widget.onCreateMissingNote;
+    if (createMissingNote == null) {
+      _showCreateError(title);
+      return;
+    }
+    final createdPath = await createMissingNote(title);
+    if (!mounted) {
+      return;
+    }
+    if (createdPath == null) {
+      _showCreateError(title);
+      return;
+    }
+    await provider.openNote(createdPath);
+  }
+
+  void _showCreateError(String title) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Could not create note "$title".')));
   }
 
   void _syncController(Note? note) {

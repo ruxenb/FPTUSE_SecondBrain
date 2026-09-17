@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
+import '../providers/note_provider.dart';
+import '../providers/vault_provider.dart';
 import 'ai/ai_chat_panel.dart';
 import 'editor/note_editor_screen.dart';
 import 'sidebar/sidebar_explorer.dart';
@@ -59,7 +62,10 @@ class ShellScreen extends StatelessWidget {
                 Expanded(
                   child: Container(
                     color: AppColors.background,
-                    child: const NoteEditorScreen(),
+                    child: NoteEditorScreen(
+                      onCreateMissingNote: (title) =>
+                          _createMissingNote(context, title),
+                    ),
                   ),
                 ),
 
@@ -101,85 +107,20 @@ class ShellScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMemberPlaceholder(
-    BuildContext context, {
-    required int memberNumber,
-    required String memberName,
-    required IconData icon,
-    required Color color,
-    required List<String> tasks,
-    required VoidCallback onAction,
-    required String actionLabel,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: color.withAlpha(40),
-            child: Icon(icon, size: 28, color: color),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            memberName,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceVariant.withAlpha(80),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: tasks
-                  .map(
-                    (task) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3.0),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 14,
-                            color: color,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              task,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: onAction,
-            icon: const Icon(Icons.play_arrow, size: 14),
-            label: Text(actionLabel, style: const TextStyle(fontSize: 11)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: color.withAlpha(50),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              side: BorderSide(color: color.withAlpha(120)),
-            ),
-          ),
-        ],
-      ),
+  Future<String?> _createMissingNote(BuildContext context, String title) async {
+    final noteProvider = context.read<NoteProvider>();
+    final currentPath = noteProvider.currentNote?.path;
+    final parentPath = currentPath == null
+        ? noteProvider.vaultRootPath
+        : path.dirname(currentPath);
+    if (parentPath == null) {
+      return null;
+    }
+
+    final createdItem = await context.read<VaultProvider>().createNote(
+      parentPath,
+      title,
     );
+    return createdItem?.path;
   }
 }
