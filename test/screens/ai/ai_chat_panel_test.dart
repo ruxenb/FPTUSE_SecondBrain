@@ -38,6 +38,7 @@ void main() {
         ),
       ),
     );
+    await tester.pump();
 
     expect(find.text('AI Assistant'), findsOneWidget);
     expect(find.text('Tóm tắt Note này'), findsOneWidget);
@@ -55,5 +56,57 @@ void main() {
       findsOneWidget,
     );
     expect(aiProvider.messages, hasLength(1));
+  });
+
+  testWidgets('AI panel synchronizes note context after note switch', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final noteProvider = NoteProvider(noteRepository: MockNoteRepository());
+    await tester.runAsync(() async {
+      await noteProvider.openNote(
+        '/vault/PRM393_Mobile_Programming/Flutter_Architecture.md',
+        vaultRoot: '/vault',
+      );
+    });
+    final aiProvider = AIProvider(aiService: MockAIService());
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AIProvider>.value(value: aiProvider),
+          ChangeNotifierProvider<NoteProvider>.value(value: noteProvider),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(body: SizedBox(width: 360, child: AIChatPanel())),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      aiProvider.activeNotePath,
+      '/vault/PRM393_Mobile_Programming/Flutter_Architecture.md',
+    );
+
+    await tester.runAsync(() async {
+      await noteProvider.openNote(
+        '/vault/PRM393_Mobile_Programming/Provider_Pattern.md',
+        vaultRoot: '/vault',
+      );
+    });
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      aiProvider.activeNotePath,
+      '/vault/PRM393_Mobile_Programming/Provider_Pattern.md',
+    );
   });
 }
