@@ -20,7 +20,7 @@ import 'providers/graph_provider.dart';
 // Real Implementations (uncomment khi hoàn thành Tuần 2)
 // import 'services/local_vault_service.dart';
 // import 'services/local_note_repository.dart';
-// import 'services/gemini_ai_service.dart';
+import 'services/gemini_ai_service.dart';
 
 // Core & UI Shell
 import 'core/theme/app_theme.dart';
@@ -28,6 +28,9 @@ import 'screens/shell_screen.dart';
 
 /// CỜ ĐIỀU KHIỂN: `true` = dùng Mock (Day 2-7), `false` = dùng Real Service (Tuần 2+).
 const bool kUseMock = true;
+const bool kUseMockAI = bool.fromEnvironment('USE_MOCK_AI', defaultValue: true);
+const String kGeminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+const String kGeminiModel = String.fromEnvironment('GEMINI_MODEL', defaultValue: 'gemini-2.5-flash');
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,7 +52,9 @@ class FPTUSecondBrainApp extends StatelessWidget {
           create: (_) => kUseMock ? MockNoteRepository() : MockNoteRepository(), // TODO: Thay vế sau bằng LocalNoteRepository()
         ),
         Provider<AIService>(
-          create: (_) => kUseMock ? MockAIService() : MockAIService(), // TODO: Thay vế sau bằng GeminiAIService(apiKey: '...')
+          create: (_) => kUseMockAI
+              ? MockAIService()
+              : GeminiAIService(apiKey: kGeminiApiKey, modelName: kGeminiModel),
         ),
 
         // 2. Providers của 4 thành viên

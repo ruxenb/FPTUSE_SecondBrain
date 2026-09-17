@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../providers/vault_provider.dart';
 import '../providers/note_provider.dart';
-import '../providers/ai_provider.dart';
+import 'ai/ai_chat_panel.dart';
 
 /// Khung giao diện chính (Desktop Shell 3 Cột).
 /// Được thiết kế dưới dạng Architecture Template với các placeholder để từng thành viên tự code module của mình.
@@ -92,26 +92,7 @@ class ShellScreen extends StatelessWidget {
                 const VerticalDivider(width: 1),
 
                 // CỘT 3: MEMBER 3 - AI ASSISTANT (Width: ~320px)
-                Container(
-                  width: 320,
-                  color: AppColors.surface,
-                  child: _buildMemberPlaceholder(
-                    context,
-                    memberNumber: 3,
-                    memberName: 'Member 3 (AI Assistant)',
-                    icon: Icons.auto_awesome,
-                    color: AppColors.primary,
-                    tasks: const [
-                      'Task T3.4: UI Khung Chat AI (Messages)',
-                      'Task T3.5: Nút "Tóm tắt Note" & Chat tự do',
-                      'Task T3.6: GeminiAIService (google_generative_ai)',
-                    ],
-                    onAction: () {
-                      context.read<AIProvider>().summarizeNote('PRM393', 'Flutter Architecture');
-                    },
-                    actionLabel: 'Test MockAIService',
-                  ),
-                ),
+                const SizedBox(width: 320, child: AIChatPanel()),
               ],
             ),
           ),

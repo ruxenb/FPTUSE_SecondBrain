@@ -1,18 +1,19 @@
 enum MessageSender { user, ai, system }
 
-/// Đại diện cho một tin nhắn trong khung Chat AI hoặc phản hồi Summary.
-/// Phụ trách: Member 3 (AI Assistant)
-class ChatMessage {
-  final String id;
-  final MessageSender sender;
-  final String text;
-  final DateTime timestamp;
+enum MessageKind { chat, summary }
 
+class ChatMessage {
   ChatMessage({
     required this.id,
     required this.sender,
     required this.text,
+    this.kind = MessageKind.chat,
     DateTime? timestamp,
-
   }) : timestamp = timestamp ?? DateTime.now();
+
+  final String id;
+  final MessageSender sender;
+  final String text;
+  final MessageKind kind;
+  final DateTime timestamp;
 }
