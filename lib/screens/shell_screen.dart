@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_colors.dart';
-import '../providers/note_provider.dart';
 import 'ai/ai_chat_panel.dart';
+import 'editor/note_editor_screen.dart';
 import 'sidebar/sidebar_explorer.dart';
 
 /// Khung giao diện chính (Desktop Shell 3 Cột).
@@ -59,24 +59,7 @@ class ShellScreen extends StatelessWidget {
                 Expanded(
                   child: Container(
                     color: AppColors.background,
-                    child: _buildMemberPlaceholder(
-                      context,
-                      memberNumber: 2,
-                      memberName: 'Member 2 (Markdown Editor & Note)',
-                      icon: Icons.edit_note_rounded,
-                      color: AppColors.secondary,
-                      tasks: const [
-                        'Task T2.4: UI Note Editor (TextField/Auto-save)',
-                        'Task T2.5: Markdown Preview & [[Wikilinks]]',
-                        'Task T2.6: Backlinks Panel & LocalNoteRepository',
-                      ],
-                      onAction: () {
-                        context.read<NoteProvider>().openNote(
-                          '/vault/PRM393/Flutter_Architecture.md',
-                        );
-                      },
-                      actionLabel: 'Test MockNoteRepository',
-                    ),
+                    child: const NoteEditorScreen(),
                   ),
                 ),
 

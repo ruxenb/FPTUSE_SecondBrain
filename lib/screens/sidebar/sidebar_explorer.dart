@@ -27,8 +27,11 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
     await context.read<VaultProvider>().openVault(selectedPath);
     if (!mounted) return;
     final vault = context.read<VaultProvider>();
+    if (vault.errorMessage != null) {
+      _showMessage(vault.errorMessage!);
+      return;
+    }
     context.read<NoteProvider>().setVaultRootPath(vault.vaultPath);
-    if (vault.errorMessage != null) _showMessage(vault.errorMessage!);
   }
 
   Future<void> _createItem(String parentPath, {required bool folder}) async {
@@ -277,11 +280,7 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
                     : _expandedPaths.add(item.path),
               );
             } else {
-              final vaultPath = context.read<VaultProvider>().vaultPath;
-              await context.read<NoteProvider>().openNote(
-                item.path,
-                vaultRoot: vaultPath,
-              );
+              await context.read<NoteProvider>().openNote(item.path);
             }
           },
           onSecondaryTapDown: (details) =>
