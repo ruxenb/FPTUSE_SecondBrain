@@ -12,6 +12,7 @@ import 'mocks/mock_note_repository.dart';
 import 'mocks/mock_ai_service.dart';
 import 'services/local_vault_service.dart';
 import 'services/local_note_repository.dart';
+import 'services/gemini_ai_service.dart';
 
 // Providers (Tầng State Management của 4 thành viên)
 import 'providers/vault_provider.dart';
@@ -20,14 +21,17 @@ import 'providers/ai_provider.dart';
 import 'providers/graph_provider.dart';
 
 // Core & UI Shell
+import 'core/constants/ai_runtime_config.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/shell_screen.dart';
 
 /// Cờ giữ Mock cho các module chưa tích hợp dịch vụ thật.
 const bool kUseMock = false;
+const AIRuntimeConfig aiConfig = AIRuntimeConfig.environment;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  aiConfig.validate();
   runApp(const FPTUSecondBrainApp());
 }
 
@@ -47,7 +51,9 @@ class FPTUSecondBrainApp extends StatelessWidget {
               kUseMock ? MockNoteRepository() : LocalNoteRepository(),
         ),
         Provider<AIService>(
-          create: (_) => kUseMock ? MockAIService() : MockAIService(), // TODO: Thay vế sau bằng GeminiAIService(apiKey: '...')
+          create: (_) => aiConfig.useMock
+              ? MockAIService(config: aiConfig)
+              : GeminiAIService(config: aiConfig),
         ),
 
         // 2. Providers của 4 thành viên
@@ -60,7 +66,11 @@ class FPTUSecondBrainApp extends StatelessWidget {
               NoteProvider(noteRepository: ctx.read<NoteRepository>()),
         ),
         ChangeNotifierProvider<AIProvider>(
-          create: (ctx) => AIProvider(aiService: ctx.read<AIService>()),
+          create: (ctx) => AIProvider(
+            aiService: ctx.read<AIService>(),
+            maxHistoryMessages: aiConfig.maxHistoryMessages,
+            clearStateOnNoteChange: aiConfig.clearStateOnNoteChange,
+          ),
         ),
         ChangeNotifierProxyProvider<NoteProvider, GraphProvider>(
           create: (ctx) =>

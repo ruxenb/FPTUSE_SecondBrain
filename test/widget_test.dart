@@ -21,10 +21,12 @@ void main() {
       find.text('FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)'),
       findsOneWidget,
     );
-    // Verify the completed Vault column and the remaining module placeholders.
+    // Verify the completed Vault Explorer and AI Assistant integrations.
     expect(find.text('EXPLORER'), findsOneWidget);
     expect(find.text('Chưa có Vault nào được mở'), findsOneWidget);
     expect(find.text('Member 2 (Markdown Editor & Note)'), findsOneWidget);
-    expect(find.text('Member 3 (AI Assistant)'), findsOneWidget);
+    expect(find.text('AI Assistant'), findsOneWidget);
+    expect(find.text('Tóm tắt Note này'), findsOneWidget);
+    expect(find.text('Tạo 3 câu Quiz'), findsOneWidget);
   });
 }

@@ -1,22 +1,81 @@
 import '../contracts/ai_service.dart';
+import '../core/constants/ai_runtime_config.dart';
 import '../models/chat_message.dart';
+import '../models/quiz_question.dart';
 
-/// Triển khai giả lập phản hồi của Gemini AI để kiểm tra UI ngay Day 2 mà không cần API Key.
-/// Phụ trách: Member 3
 class MockAIService implements AIService {
+  MockAIService({AIRuntimeConfig? config})
+    : _config = config ?? AIRuntimeConfig.environment;
+
+  final AIRuntimeConfig _config;
+
   @override
   Future<String> summarizeNote(String noteTitle, String noteContent) async {
-    await Future.delayed(const Duration(milliseconds: 600)); // Giả lập độ trễ AI
-    return '''### ⚡ Tóm Tắt Trọng Tâm Note: `$noteTitle`
-* **Kiến trúc cốt lõi:** Phân định rõ 3 tầng (UI, Provider, Services). Không gọi trực tiếp File I/O trong Widget.
-* **State Management:** Khuyến nghị dùng Provider để tối ưu vòng đời widget.
-* **Liên kết tri thức:** Sử dụng cú pháp `[[WikiLinks]]` để định hình mạng lưới Second Brain.
-* **Lưu ý thi Lab:** Đảm bảo mock implementations hoạt động ổn định trước khi cắm real API.''';
+    await Future.delayed(_config.mockDelay);
+    return '''
+### Tóm tắt: $noteTitle
+
+- Xác định các khái niệm và mục tiêu chính của bài học.
+- Ghi nhớ luồng xử lý và trách nhiệm của từng thành phần.
+- Liên hệ ví dụ thực hành với lý thuyết trong ghi chú.
+- Ưu tiên các từ khóa và quy tắc có thể xuất hiện trong bài kiểm tra.
+'''
+        .trim();
   }
 
   @override
-  Future<String> sendChatMessage(String prompt, List<ChatMessage> conversationHistory) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    return 'Chào bạn sinh viên FPTU! Mình đã nhận được câu hỏi: "$prompt". Trong mô hình Second Brain, các bài học của bạn đang được liên kết rất chặt chẽ!';
+  Future<List<QuizQuestion>> generateQuiz(
+    String noteTitle,
+    String noteContent,
+  ) async {
+    await Future.delayed(_config.mockDelay);
+    return [
+      QuizQuestion(
+        question: 'Mục tiêu chính của kiến trúc phân tầng là gì?',
+        options: const [
+          'Tăng phụ thuộc giữa các tầng',
+          'Tách trách nhiệm giữa các thành phần',
+          'Đưa toàn bộ logic vào UI',
+          'Loại bỏ state management',
+        ],
+        correctIndex: 1,
+        explanation:
+            'Tách trách nhiệm giúp hệ thống dễ bảo trì, kiểm thử và mở rộng.',
+      ),
+      QuizQuestion(
+        question:
+            'Provider trong ứng dụng chịu trách nhiệm chính cho phần nào?',
+        options: const [
+          'Quản lý state và điều phối logic',
+          'Đọc file trực tiếp trong Widget',
+          'Biên dịch mã nguồn',
+          'Vẽ giao diện hệ điều hành',
+        ],
+        correctIndex: 0,
+        explanation: 'Provider quản lý trạng thái và gọi service thay vì để Widget làm trực tiếp.',
+      ),
+      QuizQuestion(
+        question: 'Widget nên giao tiếp với AI theo luồng nào?',
+        options: const [
+          'Widget gọi Gemini trực tiếp',
+          'Widget gọi dart:io rồi gọi Gemini',
+          'Widget gọi Provider, Provider gọi AIService',
+          'Widget ghi dữ liệu trực tiếp vào Git',
+        ],
+        correctIndex: 2,
+        explanation:
+            'Luồng UI -> Provider -> AIService giữ đúng phân tầng của dự án.',
+      ),
+    ];
+  }
+
+  @override
+  Future<String> sendChatMessage(
+    String prompt,
+    List<ChatMessage> conversationHistory,
+  ) async {
+    await Future.delayed(_config.mockDelay);
+    return 'Mock AI đã nhận câu hỏi: "$prompt". '
+        'Hãy chuyển sang Gemini service khi cần kiểm thử API thực tế.';
   }
 }

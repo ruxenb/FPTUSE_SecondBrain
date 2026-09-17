@@ -1,11 +1,22 @@
 import '../models/chat_message.dart';
+import '../models/quiz_question.dart';
 
-/// Interface cung cấp năng lực AI hỗ trợ học tập (Gemini API).
-/// Phụ trách: Member 3
 abstract class AIService {
-  /// Tóm tắt nội dung bài note thành 3-5 gạch đầu dòng cốt lõi
   Future<String> summarizeNote(String noteTitle, String noteContent);
 
-  /// Trò chuyện tự do với AI theo ngữ cảnh bài học
-  Future<String> sendChatMessage(String prompt, List<ChatMessage> conversationHistory);
+  Future<List<QuizQuestion>> generateQuiz(String noteTitle, String noteContent);
+
+  Future<String> sendChatMessage(
+    String prompt,
+    List<ChatMessage> conversationHistory,
+  );
+}
+
+class AIServiceException implements Exception {
+  const AIServiceException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
