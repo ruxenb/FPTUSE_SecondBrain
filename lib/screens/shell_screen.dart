@@ -5,6 +5,7 @@ import '../core/constants/app_colors.dart';
 import '../providers/vault_provider.dart';
 import '../providers/note_provider.dart';
 import '../providers/ai_provider.dart';
+import 'sidebar/sidebar_explorer.dart';
 
 /// Khung giao diện chính (Desktop Shell 3 Cột).
 /// Được thiết kế dưới dạng Architecture Template với các placeholder để từng thành viên tự code module của mình.
@@ -29,7 +30,11 @@ class ShellScreen extends StatelessWidget {
             tooltip: 'Knowledge Graph (Member 4)',
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Khu vực Task T4.5: Knowledge Graph của Member 4')),
+                const SnackBar(
+                  content: Text(
+                    'Khu vực Task T4.5: Knowledge Graph của Member 4',
+                  ),
+                ),
               );
             },
           ),
@@ -46,22 +51,7 @@ class ShellScreen extends StatelessWidget {
                 Container(
                   width: 280,
                   color: AppColors.sidebarBackground,
-                  child: _buildMemberPlaceholder(
-                    context,
-                    memberNumber: 1,
-                    memberName: 'Member 1 (Vault & Filesystem)',
-                    icon: Icons.folder_copy_outlined,
-                    color: Colors.amber,
-                    tasks: const [
-                      'Task T1.4: UI Sidebar TreeView',
-                      'Task T1.5: Context Menu (Tạo, Đổi tên, Xóa)',
-                      'Task T1.6: LocalVaultService (dart:io)',
-                    ],
-                    onAction: () {
-                      context.read<VaultProvider>().openVault('/vault');
-                    },
-                    actionLabel: 'Test MockVaultService',
-                  ),
+                  child: const SidebarExplorer(),
                 ),
 
                 const VerticalDivider(width: 1),
@@ -82,7 +72,9 @@ class ShellScreen extends StatelessWidget {
                         'Task T2.6: Backlinks Panel & LocalNoteRepository',
                       ],
                       onAction: () {
-                        context.read<NoteProvider>().openNote('/vault/PRM393/Flutter_Architecture.md');
+                        context.read<NoteProvider>().openNote(
+                          '/vault/PRM393/Flutter_Architecture.md',
+                        );
                       },
                       actionLabel: 'Test MockNoteRepository',
                     ),
@@ -107,7 +99,10 @@ class ShellScreen extends StatelessWidget {
                       'Task T3.6: GeminiAIService (google_generative_ai)',
                     ],
                     onAction: () {
-                      context.read<AIProvider>().summarizeNote('PRM393', 'Flutter Architecture');
+                      context.read<AIProvider>().summarizeNote(
+                        'PRM393',
+                        'Flutter Architecture',
+                      );
                     },
                     actionLabel: 'Test MockAIService',
                   ),
@@ -123,11 +118,21 @@ class ShellScreen extends StatelessWidget {
             color: AppColors.sidebarBackground,
             child: const Row(
               children: [
-                Icon(Icons.desktop_windows, size: 12, color: AppColors.textDisabled),
+                Icon(
+                  Icons.desktop_windows,
+                  size: 12,
+                  color: AppColors.textDisabled,
+                ),
                 SizedBox(width: 6),
-                Text('Task T4.3: Status Bar & Layout Shell - Member 4', style: TextStyle(fontSize: 11, color: AppColors.textDisabled)),
+                Text(
+                  'Task T4.3: Status Bar & Layout Shell - Member 4',
+                  style: TextStyle(fontSize: 11, color: AppColors.textDisabled),
+                ),
                 Spacer(),
-                Text('PRM393 - Fall 2026', style: TextStyle(fontSize: 11, color: AppColors.textDisabled)),
+                Text(
+                  'PRM393 - Fall 2026',
+                  style: TextStyle(fontSize: 11, color: AppColors.textDisabled),
+                ),
               ],
             ),
           ),
@@ -174,18 +179,30 @@ class ShellScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: tasks
-                  .map((task) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3.0),
-                        child: Row(
-                          children: [
-                            Icon(Icons.check_circle_outline, size: 14, color: color),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(task, style: const TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  .map(
+                    (task) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 14,
+                            color: color,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              task,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
-                          ],
-                        ),
-                      ))
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
