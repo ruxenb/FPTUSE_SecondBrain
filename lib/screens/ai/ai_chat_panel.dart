@@ -22,6 +22,8 @@ class _AIChatPanelState extends State<AIChatPanel> {
   int _lastMessageCount = 0;
   int _lastQuizCount = 0;
   bool _lastLoadingState = false;
+  String? _lastNotePath;
+  bool _noteContextInitialized = false;
 
   @override
   void dispose() {
@@ -36,6 +38,7 @@ class _AIChatPanelState extends State<AIChatPanel> {
     final noteProvider = context.watch<NoteProvider>();
     final currentNote = noteProvider.currentNote;
 
+    _scheduleNoteContextSync(aiProvider, currentNote?.path);
     _scheduleScrollIfNeeded(aiProvider);
 
     return Container(
@@ -309,6 +312,21 @@ class _AIChatPanelState extends State<AIChatPanel> {
 
     _inputController.clear();
     provider.sendMessage(text, noteTitle: noteTitle, noteContent: noteContent);
+  }
+
+  void _scheduleNoteContextSync(AIProvider provider, String? notePath) {
+    if (_noteContextInitialized && _lastNotePath == notePath) {
+      return;
+    }
+
+    _noteContextInitialized = true;
+    _lastNotePath = notePath;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      provider.setActiveNote(notePath);
+    });
   }
 
   void _scheduleScrollIfNeeded(AIProvider provider) {

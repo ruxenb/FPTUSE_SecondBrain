@@ -1,18 +1,31 @@
 import 'package:flutter/foundation.dart';
 
 import '../contracts/ai_service.dart';
+import '../core/constants/ai_runtime_config.dart';
+import '../core/constants/app_constants.dart';
 import '../models/chat_message.dart';
 import '../models/quiz_question.dart';
 
 class AIProvider extends ChangeNotifier {
-  AIProvider({required this.aiService});
+  AIProvider({
+    required this.aiService,
+    int? maxHistoryMessages,
+    bool? clearStateOnNoteChange,
+  }) : _maxHistoryMessages =
+           maxHistoryMessages ?? AIRuntimeConfig.environment.maxHistoryMessages,
+       _clearStateOnNoteChange =
+           clearStateOnNoteChange ??
+           AIRuntimeConfig.environment.clearStateOnNoteChange;
 
   final AIService aiService;
+  final int _maxHistoryMessages;
+  final bool _clearStateOnNoteChange;
 
   final List<ChatMessage> _messages = [];
   List<QuizQuestion> _quizQuestions = const [];
   bool _isLoading = false;
   String? _errorMessage;
+  String? _activeNotePath;
   int _requestVersion = 0;
 
   List<ChatMessage> get messages => List.unmodifiable(_messages);
@@ -21,6 +34,7 @@ class AIProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   bool get hasError => _errorMessage != null;
   bool get hasQuiz => _quizQuestions.isNotEmpty;
+  String? get activeNotePath => _activeNotePath;
 
   Future<void> summarizeNote(String title, String content) async {
     if (!_canStartRequest()) {
@@ -67,9 +81,10 @@ class AIProvider extends ChangeNotifier {
       if (!_isCurrentRequest(requestVersion)) {
         return;
       }
-      if (questions.length != 3) {
-        throw const AIServiceException(
-          'AI không trả về đúng 3 câu hỏi. Vui lòng thử lại.',
+      if (questions.length != AppConstants.quizQuestionCount) {
+        throw AIServiceException(
+          'AI không trả về đúng ${AppConstants.quizQuestionCount} câu hỏi. '
+          'Vui lòng thử lại.',
         );
       }
       _quizQuestions = List.unmodifiable(questions);
@@ -90,7 +105,7 @@ class AIProvider extends ChangeNotifier {
       return;
     }
 
-    final history = List<ChatMessage>.from(_messages);
+    final history = _boundedChatHistory();
     _messages.add(
       ChatMessage(
         id: _newMessageId(),
@@ -126,6 +141,26 @@ class AIProvider extends ChangeNotifier {
     } finally {
       _finishRequest(requestVersion);
     }
+  }
+
+  void setActiveNote(String? notePath) {
+    final normalizedPath = notePath?.trim();
+    final nextPath = normalizedPath == null || normalizedPath.isEmpty
+        ? null
+        : normalizedPath;
+    if (_activeNotePath == nextPath) {
+      return;
+    }
+
+    _activeNotePath = nextPath;
+    _requestVersion++;
+    _isLoading = false;
+    _errorMessage = null;
+    _quizQuestions = const [];
+    if (_clearStateOnNoteChange) {
+      _messages.clear();
+    }
+    notifyListeners();
   }
 
   void clearMessages() {
@@ -182,6 +217,20 @@ class AIProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<ChatMessage> _boundedChatHistory() {
+    final chatMessages = _messages
+        .where(
+          (message) =>
+              message.kind == MessageKind.chat &&
+              message.sender != MessageSender.system,
+        )
+        .toList();
+    if (chatMessages.length <= _maxHistoryMessages) {
+      return chatMessages;
+    }
+    return chatMessages.sublist(chatMessages.length - _maxHistoryMessages);
+  }
+
   String _buildContextualPrompt(
     String prompt, {
     String? noteTitle,
@@ -191,11 +240,14 @@ class AIProvider extends ChangeNotifier {
     if (content == null || content.isEmpty) {
       return prompt;
     }
-    return '''
-Ghi chú hiện tại: ${noteTitle?.trim().isNotEmpty == true ? noteTitle!.trim() : 'Không có tiêu đề'}
 
-Nội dung ghi chú:
+    final title = noteTitle?.trim();
+    return '''
+${AppConstants.untrustedNoteStart}
+Tiêu đề: ${title == null || title.isEmpty ? 'Không có tiêu đề' : title}
+
 $content
+${AppConstants.untrustedNoteEnd}
 
 Câu hỏi của sinh viên:
 $prompt

@@ -1,13 +1,17 @@
 import '../contracts/ai_service.dart';
+import '../core/constants/ai_runtime_config.dart';
 import '../models/chat_message.dart';
 import '../models/quiz_question.dart';
 
 class MockAIService implements AIService {
-  static const Duration _delay = Duration(milliseconds: 800);
+  MockAIService({AIRuntimeConfig? config})
+    : _config = config ?? AIRuntimeConfig.environment;
+
+  final AIRuntimeConfig _config;
 
   @override
   Future<String> summarizeNote(String noteTitle, String noteContent) async {
-    await Future.delayed(_delay);
+    await Future.delayed(_config.mockDelay);
     return '''
 ### Tóm tắt: $noteTitle
 
@@ -24,7 +28,7 @@ class MockAIService implements AIService {
     String noteTitle,
     String noteContent,
   ) async {
-    await Future.delayed(_delay);
+    await Future.delayed(_config.mockDelay);
     return [
       QuizQuestion(
         question: 'Mục tiêu chính của kiến trúc phân tầng là gì?',
@@ -70,7 +74,7 @@ class MockAIService implements AIService {
     String prompt,
     List<ChatMessage> conversationHistory,
   ) async {
-    await Future.delayed(_delay);
+    await Future.delayed(_config.mockDelay);
     return 'Mock AI đã nhận câu hỏi: "$prompt". '
         'Hãy chuyển sang Gemini service khi cần kiểm thử API thực tế.';
   }

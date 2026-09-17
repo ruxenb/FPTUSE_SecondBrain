@@ -1,3 +1,5 @@
+import '../core/constants/app_constants.dart';
+
 class QuizQuestion {
   QuizQuestion({
     required this.question,
@@ -5,11 +7,35 @@ class QuizQuestion {
     required this.correctIndex,
     required this.explanation,
   }) : options = List.unmodifiable(options) {
-    if (this.options.length != 4) {
+    if (question.trim().isEmpty) {
+      throw ArgumentError.value(
+        question,
+        'question',
+        'Question must not be empty.',
+      );
+    }
+    if (this.options.length != AppConstants.quizOptionCount) {
       throw ArgumentError.value(
         this.options.length,
         'options',
-        'A quiz question must contain exactly four options.',
+        'A quiz question must contain exactly ${AppConstants.quizOptionCount} options.',
+      );
+    }
+    if (this.options.any((option) => option.trim().isEmpty)) {
+      throw ArgumentError.value(
+        this.options,
+        'options',
+        'Quiz options must not be empty.',
+      );
+    }
+    final normalizedOptions = this.options
+        .map((option) => option.trim().toLowerCase())
+        .toSet();
+    if (normalizedOptions.length != this.options.length) {
+      throw ArgumentError.value(
+        this.options,
+        'options',
+        'Quiz options must be unique.',
       );
     }
     if (correctIndex < 0 || correctIndex >= this.options.length) {
@@ -17,6 +43,13 @@ class QuizQuestion {
         correctIndex,
         'correctIndex',
         'The correct answer index is out of range.',
+      );
+    }
+    if (explanation.trim().isEmpty) {
+      throw ArgumentError.value(
+        explanation,
+        'explanation',
+        'Explanation must not be empty.',
       );
     }
   }
@@ -31,16 +64,23 @@ class QuizQuestion {
     if (rawOptions is! List) {
       throw const FormatException('Quiz options must be a list.');
     }
-
-    final options = rawOptions.map((item) => item.toString().trim()).toList();
-    final correctIndex = _parseCorrectIndex(json['correctIndex']);
+    if (rawOptions.any((item) => item is! String)) {
+      throw const FormatException('Every quiz option must be a string.');
+    }
 
     return QuizQuestion(
-      question: (json['question'] ?? '').toString().trim(),
-      options: options,
-      correctIndex: correctIndex,
-      explanation: (json['explanation'] ?? '').toString().trim(),
+      question: _requiredString(json['question'], 'question'),
+      options: rawOptions.cast<String>().map((item) => item.trim()).toList(),
+      correctIndex: _parseCorrectIndex(json['correctIndex']),
+      explanation: _requiredString(json['explanation'], 'explanation'),
     );
+  }
+
+  static String _requiredString(Object? value, String fieldName) {
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('Quiz $fieldName must be a non-empty string.');
+    }
+    return value.trim();
   }
 
   static int _parseCorrectIndex(Object? value) {
