@@ -6,10 +6,13 @@ import 'contracts/vault_service.dart';
 import 'contracts/note_repository.dart';
 import 'contracts/ai_service.dart';
 
-// Mocks (Day 2 - In-Memory Stubs for parallel UI development)
+// Mock AI hiện dùng cho đến khi Gemini được cấu hình.
 import 'mocks/mock_vault_service.dart';
 import 'mocks/mock_note_repository.dart';
 import 'mocks/mock_ai_service.dart';
+import 'services/local_vault_service.dart';
+import 'services/local_note_repository.dart';
+import 'services/gemini_ai_service.dart';
 
 // Providers (Tầng State Management của 4 thành viên)
 import 'providers/vault_provider.dart';
@@ -17,18 +20,13 @@ import 'providers/note_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/graph_provider.dart';
 
-// Real Implementations (uncomment khi hoàn thành Tuần 2)
-// import 'services/local_vault_service.dart';
-// import 'services/local_note_repository.dart';
-import 'services/gemini_ai_service.dart';
-
 // Core & UI Shell
 import 'core/constants/ai_runtime_config.dart';
 import 'core/theme/app_theme.dart';
 import 'screens/shell_screen.dart';
 
-/// CỜ ĐIỀU KHIỂN: `true` = dùng Mock (Day 2-7), `false` = dùng Real Service (Tuần 2+).
-const bool kUseMock = true;
+/// Cờ giữ Mock cho các module chưa tích hợp dịch vụ thật.
+const bool kUseMock = false;
 const AIRuntimeConfig aiConfig = AIRuntimeConfig.environment;
 
 void main() {
@@ -44,12 +42,13 @@ class FPTUSecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. Contracts & Services (Hiện tại dùng Mocks, Tuần 2 thay bằng Real Service)
+        // 1. Contracts & Services
         Provider<VaultService>(
-          create: (_) => kUseMock ? MockVaultService() : MockVaultService(), // TODO: Thay vế sau bằng LocalVaultService()
+          create: (_) => kUseMock ? MockVaultService() : LocalVaultService(),
         ),
         Provider<NoteRepository>(
-          create: (_) => kUseMock ? MockNoteRepository() : MockNoteRepository(), // TODO: Thay vế sau bằng LocalNoteRepository()
+          create: (_) =>
+              kUseMock ? MockNoteRepository() : LocalNoteRepository(),
         ),
         Provider<AIService>(
           create: (_) => aiConfig.useMock
@@ -59,10 +58,12 @@ class FPTUSecondBrainApp extends StatelessWidget {
 
         // 2. Providers của 4 thành viên
         ChangeNotifierProvider<VaultProvider>(
-          create: (ctx) => VaultProvider(vaultService: ctx.read<VaultService>()),
+          create: (ctx) =>
+              VaultProvider(vaultService: ctx.read<VaultService>()),
         ),
         ChangeNotifierProvider<NoteProvider>(
-          create: (ctx) => NoteProvider(noteRepository: ctx.read<NoteRepository>()),
+          create: (ctx) =>
+              NoteProvider(noteRepository: ctx.read<NoteRepository>()),
         ),
         ChangeNotifierProvider<AIProvider>(
           create: (ctx) => AIProvider(
@@ -72,7 +73,8 @@ class FPTUSecondBrainApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProxyProvider<NoteProvider, GraphProvider>(
-          create: (ctx) => GraphProvider(noteRepository: ctx.read<NoteRepository>()),
+          create: (ctx) =>
+              GraphProvider(noteRepository: ctx.read<NoteRepository>()),
           update: (ctx, noteProvider, graphProvider) =>
               graphProvider!..updateFromNoteProvider(noteProvider),
         ),
