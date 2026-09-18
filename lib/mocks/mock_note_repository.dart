@@ -75,6 +75,16 @@ Ghi chú ngắn: Cần tối ưu hiệu năng render markdown khi xem [[Flutter_
       outgoingLinks: ['Flutter_Architecture'],
       backlinks: [],
     ),
+    '/vault/Daily_Thoughts.md': Note(
+      path: '/vault/Daily_Thoughts.md',
+      title: 'Daily_Thoughts',
+      content: '''# Nhật Ký & Suy Nghĩ Hàng Ngày
+
+Ghi chú độc lập, chưa liên kết với bất kỳ môn học hay bài viết nào.
+''',
+      outgoingLinks: const [],
+      backlinks: const [],
+    ),
   };
 
   @override

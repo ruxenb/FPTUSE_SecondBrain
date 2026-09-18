@@ -60,6 +60,11 @@ class MockVaultService implements VaultService {
           path: '/vault/Quick_Ideas.md',
           isDirectory: false,
         ),
+        VaultItem(
+          name: 'Daily_Thoughts.md',
+          path: '/vault/Daily_Thoughts.md',
+          isDirectory: false,
+        ),
       ],
     );
   }

@@ -19,6 +19,7 @@ import 'providers/vault_provider.dart';
 import 'providers/note_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/graph_provider.dart';
+import 'providers/theme_provider.dart'; // [Member 4 - T4.3]
 
 // Core & UI Shell
 import 'core/constants/ai_runtime_config.dart';
@@ -42,7 +43,12 @@ class FPTUSecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. Contracts & Services
+        // ─── 0. Theme Provider (Member 4 - T4.3) ───
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(),
+        ),
+
+        // ─── 1. Contracts & Services ───
         Provider<VaultService>(
           create: (_) => kUseMock ? MockVaultService() : LocalVaultService(),
         ),
@@ -56,7 +62,7 @@ class FPTUSecondBrainApp extends StatelessWidget {
               : GeminiAIService(config: aiConfig),
         ),
 
-        // 2. Providers của 4 thành viên
+        // ─── 2. Business Logic Providers ───
         ChangeNotifierProvider<VaultProvider>(
           create: (ctx) =>
               VaultProvider(vaultService: ctx.read<VaultService>()),
@@ -79,11 +85,19 @@ class FPTUSecondBrainApp extends StatelessWidget {
               graphProvider!..updateFromNoteProvider(noteProvider),
         ),
       ],
-      child: MaterialApp(
-        title: 'FPTU SE Knowledge - Second Brain Template',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: const ShellScreen(),
+
+      // ─── MaterialApp với Dynamic Theme (Member 4 - T4.6) ───
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: 'FPTU SE Knowledge - Second Brain',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const ShellScreen(),
+          );
+        },
       ),
     );
   }
