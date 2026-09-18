@@ -16,6 +16,7 @@ import 'providers/vault_provider.dart';
 import 'providers/note_provider.dart';
 import 'providers/ai_provider.dart';
 import 'providers/graph_provider.dart';
+import 'providers/theme_provider.dart'; // [Member 4 - T4.3]
 
 // Real Implementations (uncomment khi hoàn thành Tuần 2)
 // import 'services/local_vault_service.dart';
@@ -41,7 +42,12 @@ class FPTUSecondBrainApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1. Contracts & Services (Hiện tại dùng Mocks, Tuần 2 thay bằng Real Service)
+        // ─── 0. Theme Provider (Member 4 - T4.3) ───
+        ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(),
+        ),
+
+        // ─── 1. Contracts & Services (cờ kUseMock) ───
         Provider<VaultService>(
           create: (_) => kUseMock ? MockVaultService() : MockVaultService(), // TODO: Thay vế sau bằng LocalVaultService()
         ),
@@ -52,7 +58,7 @@ class FPTUSecondBrainApp extends StatelessWidget {
           create: (_) => kUseMock ? MockAIService() : MockAIService(), // TODO: Thay vế sau bằng GeminiAIService(apiKey: '...')
         ),
 
-        // 2. Providers của 4 thành viên
+        // ─── 2. Business Logic Providers ───
         ChangeNotifierProvider<VaultProvider>(
           create: (ctx) => VaultProvider(vaultService: ctx.read<VaultService>()),
         ),
@@ -68,11 +74,19 @@ class FPTUSecondBrainApp extends StatelessWidget {
               graphProvider!..updateFromNoteProvider(noteProvider),
         ),
       ],
-      child: MaterialApp(
-        title: 'FPTU SE Knowledge - Second Brain Template',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.darkTheme,
-        home: const ShellScreen(),
+
+      // ─── MaterialApp với Dynamic Theme (Member 4 - T4.6) ───
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: 'FPTU SE Knowledge - Second Brain',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const ShellScreen(),
+          );
+        },
       ),
     );
   }

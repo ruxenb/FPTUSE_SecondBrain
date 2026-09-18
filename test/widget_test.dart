@@ -15,10 +15,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify title
-    expect(find.text('FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)'), findsOneWidget);
+    expect(find.text('FPTU SE SECOND BRAIN'), findsOneWidget);
     // Verify 3 member columns
-    expect(find.text('Member 1 (Vault & Filesystem)'), findsOneWidget);
-    expect(find.text('Member 2 (Markdown Editor & Note)'), findsOneWidget);
-    expect(find.text('Member 3 (AI Assistant)'), findsOneWidget);
+    expect(find.text('Vault & Filesystem'), findsOneWidget);
+    expect(find.text('Markdown Editor & Note'), findsOneWidget);
+    expect(find.text('AI Assistant'), findsOneWidget);
   });
 }
