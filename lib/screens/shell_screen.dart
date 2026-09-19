@@ -148,11 +148,15 @@ class _ShellScreenState extends State<ShellScreen> {
       ),
       leadingWidth: 36,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            vaultProvider.hasVault
-                ? 'FPTU SE KB — ${vaultProvider.rootItem?.name ?? "Vault"}'
-                : 'FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)',
+          Flexible(
+            child: Text(
+              vaultProvider.hasVault
+                  ? 'FPTU SE KB — ${vaultProvider.rootItem?.name ?? "Vault"}'
+                  : 'FPTU SE SECOND BRAIN (ARCHITECTURAL TEMPLATE)',
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(width: 8),
           Container(

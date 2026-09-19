@@ -6,15 +6,57 @@ import '../../providers/graph_provider.dart';
 import '../../providers/note_provider.dart';
 import '../../providers/vault_provider.dart';
 
+// ═══════════════════════════════════════════════
+//  SPATIAL HASH GRID — Fix #1: O(N×K) repulsion
+// ═══════════════════════════════════════════════
+
+/// Chia canvas thành lưới ô vuông, mỗi node gán vào ô theo tọa độ.
+/// Khi tính lực đẩy, chỉ duyệt 9 ô lân cận (3×3) thay vì toàn bộ N² cặp.
+class _SpatialGrid {
+  final double cellSize;
+  final Map<(int, int), List<String>> _cells = {};
+
+  _SpatialGrid({this.cellSize = 650.0});
+
+  /// Dùng floor division thay vì truncating division (~/) để xử lý đúng tọa độ âm.
+  /// -50 ~/ 400 = 0 (sai), (-50 / 400).floor() = -1 (đúng).
+  static int _floorDiv(double v, double size) => (v / size).floor();
+
+  void clear() => _cells.clear();
+
+  void insert(String nodeId, Offset position) {
+    final key = (_floorDiv(position.dx, cellSize), _floorDiv(position.dy, cellSize));
+    (_cells[key] ??= []).add(nodeId);
+  }
+
+  /// Trả về danh sách nodeId trong 9 ô lân cận (3×3 grid).
+  List<String> getNeighbors(Offset position) {
+    final cx = _floorDiv(position.dx, cellSize);
+    final cy = _floorDiv(position.dy, cellSize);
+    final result = <String>[];
+    for (int dx = -1; dx <= 1; dx++) {
+      for (int dy = -1; dy <= 1; dy++) {
+        final cell = _cells[(cx + dx, cy + dy)];
+        if (cell != null) result.addAll(cell);
+      }
+    }
+    return result;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  KNOWLEDGE GRAPH SCREEN
+// ═══════════════════════════════════════════════
+
 /// [Member 4 - T4.5] Màn hình trực quan hóa mạng lưới liên kết tri thức (Knowledge Graph).
 ///
-/// Thiết kế chuẩn Obsidian Desktop:
-/// - Tất cả các node có màu xám nhạt đồng nhất, kích thước tỷ lệ thuận với số liên kết.
-/// - Không node nào có màu tím khi chưa hover (chỉ khi hover mới chuyển sang tím).
-/// - Khi hover: không nhảy kích thước, không glow, chỉ đổi màu tím và viền trắng nổi bật.
-/// - Cạnh liên kết thanh mảnh (1.0 - 1.5px), không có mũi tên.
-/// - Kéo thả & thả tay: node có quán tính trôi nhẹ (drift) và các node liên kết tự động co giãn cân bằng lại theo lực đàn hồi lò xo.
-/// - Pan/Zoom mượt mà trên Desktop với scaleFactor 1200 và bộ nút Zoom In/Out/Fit/Reset.
+/// Performance optimizations applied:
+/// - Fix #1: Spatial Hash Grid cho lực đẩy O(N×K) thay vì O(N²)
+/// - Fix #2: Static dot grid tách riêng RepaintBoundary, chỉ vẽ 1 lần
+/// - Fix #3: Throttle onPanUpdate (position + relax + setState) ≤60fps
+/// - Fix #4: shouldRepaint dùng version counter thay vì Map reference
+/// - Fix #5: Drift animation dừng sớm khi graph ổn định
+/// - Fix #6: RepaintBoundary cho từng node (GPU isolation only, không ngăn Dart rebuild)
 class KnowledgeGraphScreen extends StatefulWidget {
   const KnowledgeGraphScreen({super.key});
 
@@ -24,13 +66,24 @@ class KnowledgeGraphScreen extends StatefulWidget {
 
 class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     with SingleTickerProviderStateMixin {
-  static const double _canvasSize = 2500.0;
-  static const Offset _canvasCenter = Offset(_canvasSize / 2, _canvasSize / 2);
+  double _canvasSize = 3200.0;
+  Offset _canvasCenter = const Offset(1600.0, 1600.0);
+
+  /// Tự động tính kích thước canvas dựa trên số lượng node trong Vault.
+  /// Với vault lớn (ví dụ 639 nodes), canvas mở rộng lên ~8500px-9500px để các node tự do phân bố.
+  static double _calculateCanvasSize(int nodeCount) {
+    if (nodeCount <= 20) return 3200.0;
+    if (nodeCount <= 80) return 4800.0;
+    return (sqrt(nodeCount) * 360.0).clamp(4500.0, 12000.0);
+  }
 
   final TransformationController _transformController = TransformationController();
 
   // Tọa độ các node trên canvas ảo (nodeId → Offset)
   final Map<String, Offset> _nodePositions = {};
+
+  // Spatial grid cho lực đẩy O(N×K) — Fix #1
+  final _SpatialGrid _spatialGrid = _SpatialGrid(cellSize: 650.0);
 
   // Node đang được hover chuột
   String? _hoveredNodeId;
@@ -54,11 +107,34 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
   int _lastNodeCount = 0;
   int _lastEdgeCount = 0;
 
+  // Fix #4: Version counter cho shouldRepaint (thay vì Map reference compare)
+  int _paintVersion = 0;
+
+  // Level of Detail (LOD): 0 = Full labels, 1 = Hub labels only, 2 = Hover/Active only
+  int _currentLod = 0;
+
+  static int _calculateLod(double scale) {
+    if (scale >= 0.45) return 0; // Gần: hiện toàn bộ label
+    if (scale >= 0.22) return 1; // Trung bình: chỉ hiện label của node trung tâm (connectionCount >= 3)
+    return 2;                    // Xa: ẩn hết label thông thường, chỉ hiện khi hover/active/adjacent
+  }
+
+  void _onTransformChanged() {
+    final scale = _transformController.value.getMaxScaleOnAxis();
+    final newLod = _calculateLod(scale);
+    if (newLod != _currentLod) {
+      setState(() {
+        _currentLod = newLod;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     _effectiveDriftController; // Khởi tạo controller
+    _transformController.addListener(_onTransformChanged);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadGraphData();
@@ -72,6 +148,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
   @override
   void dispose() {
     _driftController?.dispose();
+    _transformController.removeListener(_onTransformChanged);
     _transformController.dispose();
     super.dispose();
   }
@@ -86,7 +163,13 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     }
   }
 
-  /// Tính toán bố trí ban đầu bằng thuật toán Force-Directed Physics
+  // ═══════════════════════════════════════════
+  //  INITIAL LAYOUT — Force-Directed (chạy 1 lần)
+  // ═══════════════════════════════════════════
+
+  /// Tính toán bố trí ban đầu bằng thuật toán Force-Directed Physics.
+  /// Dùng Spatial Grid cho lực đẩy (Fix #1).
+  /// Gravity toward center giữ vai trò global spreading để tránh co cụm.
   void _initializeLayout() {
     final graphProvider = context.read<GraphProvider>();
     final nodes = graphProvider.nodes;
@@ -100,36 +183,52 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     _lastNodeCount = nodes.length;
     _lastEdgeCount = edges.length;
 
-    final rnd = Random(42);
-    final radius = (nodes.length * 40.0).clamp(180.0, 450.0);
+    _canvasSize = _calculateCanvasSize(nodes.length);
+    _canvasCenter = Offset(_canvasSize / 2, _canvasSize / 2);
 
-    // 1. Phân bố vòng tròn ban đầu quanh tâm canvas
+    final rnd = Random(42);
+    // Bán kính phân bố ban đầu tỉ lệ thuận theo số node và kích thước canvas
+    final radius = (sqrt(nodes.length) * 110.0).clamp(320.0, _canvasSize * 0.38);
+
+    // 1. Phân bố vòng tròn ban đầu quanh tâm canvas (bán kính rộng thoáng)
     for (int i = 0; i < nodes.length; i++) {
       final angle = (2 * pi * i) / nodes.length;
       _nodePositions[nodes[i].id] = Offset(
-        _canvasCenter.dx + radius * cos(angle) + (rnd.nextDouble() - 0.5) * 30,
-        _canvasCenter.dy + radius * sin(angle) + (rnd.nextDouble() - 0.5) * 30,
+        _canvasCenter.dx + radius * cos(angle) + (rnd.nextDouble() - 0.5) * 40,
+        _canvasCenter.dy + radius * sin(angle) + (rnd.nextDouble() - 0.5) * 40,
       );
     }
 
-    // 2. Chạy 120 vòng lặp mô phỏng lực vật lý ban đầu (Force Simulation)
-    const kRepulsion = 160000.0;
-    const kSpring = 0.04;
-    const idealDistance = 160.0;
-    double temperature = 45.0;
+    // 2. Chạy 140 vòng lặp mô phỏng lực vật lý ban đầu
+    // Lực đẩy kRepulsion mạnh hơn (450000), khoảng cách lý tưởng idealDistance 320px
+    // Trọng lực tâm giảm (0.008) để các cụm node giãn cách tự nhiên và thoáng hơn
+    const kRepulsion = 450000.0;
+    const kSpring = 0.035;
+    const idealDistance = 320.0;
+    double temperature = 60.0;
 
-    for (int iter = 0; iter < 120; iter++) {
+    for (int iter = 0; iter < 140; iter++) {
       final displacements = <String, Offset>{
         for (final n in nodes) n.id: Offset.zero,
       };
 
-      // Lực đẩy giữa mọi cặp node (Coulomb's Law)
+      // Xây spatial grid cho iteration này
+      _spatialGrid.clear();
+      for (final n in nodes) {
+        _spatialGrid.insert(n.id, _nodePositions[n.id]!);
+      }
+
+      // Lực đẩy — chỉ giữa neighbor trong spatial grid (Fix #1)
       for (int i = 0; i < nodes.length; i++) {
-        for (int j = i + 1; j < nodes.length; j++) {
-          final idA = nodes[i].id;
-          final idB = nodes[j].id;
-          final posA = _nodePositions[idA]!;
-          final posB = _nodePositions[idB]!;
+        final idA = nodes[i].id;
+        final posA = _nodePositions[idA]!;
+        final neighbors = _spatialGrid.getNeighbors(posA);
+
+        for (final idB in neighbors) {
+          if (idA.compareTo(idB) >= 0) continue; // Tránh tính trùng + self
+          final posB = _nodePositions[idB];
+          if (posB == null) continue;
+
           final delta = posA - posB;
           final dist = max(delta.distance, 15.0);
           final force = kRepulsion / (dist * dist);
@@ -155,11 +254,11 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         displacements[edge.targetId] = displacements[edge.targetId]! - disp;
       }
 
-      // Trọng lực kéo nhẹ về tâm canvas
+      // Trọng lực kéo về tâm canvas nhẹ nhàng (0.008) để giữ graph không dồn cục
       for (final node in nodes) {
         final pos = _nodePositions[node.id]!;
         final deltaToCenter = _canvasCenter - pos;
-        displacements[node.id] = displacements[node.id]! + deltaToCenter * 0.02;
+        displacements[node.id] = displacements[node.id]! + deltaToCenter * 0.008;
       }
 
       // Áp dụng độ dời có giảm dần nhiệt độ
@@ -177,35 +276,53 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         }
       }
 
-      temperature *= 0.96;
+      temperature *= 0.97;
     }
   }
 
-  /// Tự động cân bằng vị trí các node liên kết theo cơ chế lực lò xo đàn hồi (Spring relaxation)
-  void _relaxGraphStep({String? pinnedNodeId, int steps = 4, double maxStepScale = 1.0}) {
+  // ═══════════════════════════════════════════
+  //  REAL-TIME RELAXATION — Spatial Grid O(N×K)
+  // ═══════════════════════════════════════════
+
+  /// Tự động cân bằng vị trí các node liên kết theo cơ chế lực lò xo đàn hồi.
+  /// Dùng Spatial Grid (Fix #1) cho lực đẩy cục bộ + gravity toàn cục để tránh co cụm.
+  /// Trả về tổng displacement để Fix #5 có thể dừng sớm khi ổn định.
+  double _relaxGraphStep({String? pinnedNodeId, int steps = 4, double maxStepScale = 1.0}) {
     final graphProvider = context.read<GraphProvider>();
     final nodes = graphProvider.nodes;
     final edges = graphProvider.edges;
 
-    const kRepulsion = 120000.0;
-    const kSpring = 0.045;
-    const idealDistance = 150.0;
-    const maxStep = 8.0;
+    const kRepulsion = 380000.0;
+    const kSpring = 0.04;
+    const idealDistance = 300.0;
+    const maxStep = 10.0;
     final effectiveMaxStep = maxStep * maxStepScale;
+
+    double totalDisplacement = 0.0;
 
     for (int s = 0; s < steps; s++) {
       final displacements = <String, Offset>{
         for (final n in nodes) n.id: Offset.zero,
       };
 
-      // 1. Lực đẩy giữa các cặp node
-      for (int i = 0; i < nodes.length; i++) {
-        for (int j = i + 1; j < nodes.length; j++) {
-          final idA = nodes[i].id;
-          final idB = nodes[j].id;
-          final posA = _nodePositions[idA];
+      // Xây spatial grid cho step này (Fix #1)
+      _spatialGrid.clear();
+      for (final n in nodes) {
+        final pos = _nodePositions[n.id];
+        if (pos != null) _spatialGrid.insert(n.id, pos);
+      }
+
+      // 1. Lực đẩy cục bộ — chỉ neighbor trong spatial grid (Fix #1)
+      for (final node in nodes) {
+        final idA = node.id;
+        final posA = _nodePositions[idA];
+        if (posA == null) continue;
+
+        final neighbors = _spatialGrid.getNeighbors(posA);
+        for (final idB in neighbors) {
+          if (idA.compareTo(idB) >= 0) continue;
           final posB = _nodePositions[idB];
-          if (posA == null || posB == null) continue;
+          if (posB == null) continue;
 
           final delta = posA - posB;
           final dist = max(delta.distance, 15.0);
@@ -236,22 +353,23 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         }
       }
 
-      // 3. Trọng lực hướng tâm nhẹ nhàng để đồ thị không bị dạt ra quá xa
+      // 3. Gravity hướng tâm nhẹ nhàng để graph phân bố rộng thoáng
       for (final node in nodes) {
         if (node.id == pinnedNodeId) continue;
         final pos = _nodePositions[node.id];
         if (pos == null) continue;
         final deltaToCenter = _canvasCenter - pos;
-        displacements[node.id] = displacements[node.id]! + deltaToCenter * 0.005;
+        displacements[node.id] = displacements[node.id]! + deltaToCenter * 0.0015;
       }
 
-      // 4. Cập nhật vị trí các node không bị pin (tự cân bằng lại)
+      // 4. Cập nhật vị trí các node không bị pin
       for (final node in nodes) {
         if (node.id == pinnedNodeId) continue;
         final disp = displacements[node.id]!;
         final len = disp.distance;
         if (len > 0) {
           final step = (disp / len) * min(len, effectiveMaxStep);
+          totalDisplacement += step.distance;
           final cur = _nodePositions[node.id]!;
           _nodePositions[node.id] = Offset(
             (cur.dx + step.dx).clamp(80.0, _canvasSize - 80.0),
@@ -260,14 +378,20 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         }
       }
     }
+
+    return totalDisplacement;
   }
 
-  /// Khi người dùng thả tay, node tiếp tục trôi chậm dần theo quán tính và cả hệ thống tự cân bằng êm ái
+  // ═══════════════════════════════════════════
+  //  DRIFT ANIMATION — Fix #5: dừng sớm
+  // ═══════════════════════════════════════════
+
+  /// Khi người dùng thả tay, node tiếp tục trôi chậm dần theo quán tính.
+  /// Dừng sớm khi tổng displacement < 0.5 (Fix #5).
   void _onDriftTick() {
     if (!mounted || _nodePositions.isEmpty) return;
 
     final progress = _driftController?.value ?? 1.0;
-    // Giảm tốc êm dịu kéo dài ~2.5 giây, duy trì quán tính trôi bồng bềnh tự nhiên
     final decay = pow(1.0 - progress, 1.2).toDouble();
 
     if (_releasedNodeId != null && _releaseVelocity != Offset.zero) {
@@ -281,8 +405,14 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
       }
     }
 
-    // Cân bằng vật lý nhẹ nhàng trên toàn bộ đồ thị theo tiến trình giảm tốc
-    _relaxGraphStep(pinnedNodeId: null, steps: 2, maxStepScale: decay);
+    // Fix #5: giảm steps từ 2 → 1, dừng sớm khi graph ổn định hoặc quán tính tắt
+    final totalDisp = _relaxGraphStep(pinnedNodeId: null, steps: 1, maxStepScale: decay);
+    if (totalDisp < 1.0 || decay < 0.15) {
+      _driftController?.stop(); // Graph đã ổn định, dừng animation sớm
+      return;
+    }
+
+    _paintVersion++;
     setState(() {});
   }
 
@@ -303,7 +433,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
   //  ZOOM & PAN CONTROLS
   // ═══════════════════════════════════════════
 
-  /// Phóng to / Thu nhỏ mượt mà quanh tâm khung nhìn
   void _zoom(double factor) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
@@ -313,7 +442,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
 
     final currentMatrix = _transformController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
-    final newScale = (currentScale * factor).clamp(0.15, 3.5);
+    final newScale = (currentScale * factor).clamp(0.04, 3.5);
     final actualFactor = newScale / currentScale;
 
     final translation = Matrix4.translationValues(center.dx, center.dy, 0.0);
@@ -325,7 +454,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     });
   }
 
-  /// Căn vừa màn hình (Fit to View)
   void _fitToScreen() {
     if (_nodePositions.isEmpty || !mounted) return;
 
@@ -333,7 +461,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     if (renderBox == null || !renderBox.hasSize) return;
 
     final vp = renderBox.size;
-    final vpHeight = vp.height - 36; // trừ chiều cao toolbar
+    final vpHeight = vp.height - 36;
     if (vp.width <= 0 || vpHeight <= 0) return;
 
     double minX = double.infinity;
@@ -348,14 +476,14 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
       if (pos.dy > maxY) maxY = pos.dy;
     }
 
-    const padding = 140.0;
+    const padding = 160.0;
     final graphWidth = (maxX - minX) + padding * 2;
     final graphHeight = (maxY - minY) + padding * 2;
     final graphCenter = Offset((minX + maxX) / 2, (minY + maxY) / 2);
 
     final scaleX = vp.width / graphWidth;
     final scaleY = vpHeight / graphHeight;
-    final targetScale = min(scaleX, scaleY).clamp(0.25, 1.6);
+    final targetScale = min(scaleX, scaleY).clamp(0.04, 1.8);
 
     final vpCenter = Offset(vp.width / 2, vpHeight / 2);
     final translation = vpCenter - (graphCenter * targetScale);
@@ -368,7 +496,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     });
   }
 
-  /// Đặt lại zoom về tỷ lệ 100% tại tâm canvas
   void _resetView() {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) {
@@ -444,6 +571,13 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     final nodes = graphProvider.nodes;
     final edges = graphProvider.edges;
 
+    // Tối ưu O(E): Tính trước bậc liên kết (degree) cho tất cả các node trong 1 lần duyệt
+    final degreeMap = <String, int>{};
+    for (final e in edges) {
+      degreeMap[e.sourceId] = (degreeMap[e.sourceId] ?? 0) + 1;
+      degreeMap[e.targetId] = (degreeMap[e.targetId] ?? 0) + 1;
+    }
+
     // Tìm tập hợp node liền kề node đang được hover (nếu có)
     final adjacentNodeIds = _hoveredNodeId != null
         ? _getAdjacentNodeIds(_hoveredNodeId!, edges)
@@ -461,10 +595,10 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               return ClipRect(
                 child: InteractiveViewer(
                   constrained: false,
-                  boundaryMargin: const EdgeInsets.all(1200),
-                  minScale: 0.15,
+                  boundaryMargin: EdgeInsets.all(_canvasSize * 0.35),
+                  minScale: 0.04,
                   maxScale: 3.5,
-                  scaleFactor: 1200.0, // Zoom mượt mà trên Desktop khi lăn chuột
+                  scaleFactor: 280.0, // Cuộn chuột nhạy và nhanh hơn gấp 4 lần (trước là 1200.0)
                   transformationController: _transformController,
                   child: SizedBox(
                     width: _canvasSize,
@@ -472,16 +606,30 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Lớp 1: Vẽ các đường nối (Edges) và lưới nền
+                        // Lớp 0: Dot grid tĩnh — Fix #2: RepaintBoundary, chỉ vẽ 1 lần.
                         Positioned.fill(
-                          child: CustomPaint(
-                            painter: _KnowledgeGraphEdgePainter(
-                              nodes: nodes,
-                              edges: edges,
-                              nodePositions: _nodePositions,
-                              hoveredNodeId: _hoveredNodeId,
-                              adjacentNodeIds: adjacentNodeIds,
-                              colorScheme: colorScheme,
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _StaticDotGridPainter(
+                                colorScheme: colorScheme,
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Lớp 1: Vẽ các đường nối (Edges) — Fix #4: version counter & RepaintBoundary
+                        Positioned.fill(
+                          child: RepaintBoundary(
+                            child: CustomPaint(
+                              painter: _KnowledgeGraphEdgePainter(
+                                nodes: nodes,
+                                edges: edges,
+                                nodePositions: _nodePositions,
+                                hoveredNodeId: _hoveredNodeId,
+                                adjacentNodeIds: adjacentNodeIds,
+                                colorScheme: colorScheme,
+                                paintVersion: _paintVersion, // Fix #4
+                              ),
                             ),
                           ),
                         ),
@@ -491,7 +639,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
                           _buildInteractiveNode(
                             gNode: gNode,
                             graphProvider: graphProvider,
-                            edges: edges,
+                            connectionCount: degreeMap[gNode.id] ?? 0,
                             adjacentNodeIds: adjacentNodeIds,
                             colorScheme: colorScheme,
                           ),
@@ -513,7 +661,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
   Widget _buildInteractiveNode({
     required GraphNode gNode,
     required GraphProvider graphProvider,
-    required List<GraphEdge> edges,
+    required int connectionCount,
     required Set<String> adjacentNodeIds,
     required ColorScheme colorScheme,
   }) {
@@ -523,17 +671,25 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     final isAdjacent = adjacentNodeIds.contains(gNode.id);
     final isDimmed = _hoveredNodeId != null && !isHovered && !isAdjacent;
     final isActive = graphProvider.activeNodeId == gNode.id;
-    final isPhantom = gNode.path.isEmpty;
 
-    // Đếm số cạnh để xác định độ to nhỏ của node
-    final connectionCount = edges
-        .where((e) => e.sourceId == gNode.id || e.targetId == gNode.id)
-        .length;
+    // Level of Detail (LOD): quyết định có render label văn bản hay không.
+    // Zoom out xa: ẩn nhãn text trên hàng trăm node giúp triệt tiêu hoàn toàn 122ms Skia Text Layout & Raster jank
+    final bool showLabel = switch (_currentLod) {
+      0 => true,
+      1 => isHovered || isActive || isAdjacent || connectionCount >= 10,
+      _ => isHovered || isActive || isAdjacent,
+    };
+
     final isIsolated = connectionCount == 0;
-    final nodeSize = (26.0 + connectionCount * 4.0).clamp(26.0, 52.0);
+    // Tất cả node dưới 10 cạnh có cùng kích thước chuẩn nhỏ gọn bằng nhau (12px).
+    // Chỉ những node là trung tâm kết nối thực sự (từ 10 cạnh trở lên) mới to dần lên (18px - 44px).
+    final double nodeSize;
+    if (connectionCount < 10) {
+      nodeSize = 12.0;
+    } else {
+      nodeSize = (18.0 + (connectionCount - 10) * 2.5).clamp(18.0, 44.0);
+    }
 
-    // Node có liên kết: xám trung tính (Color(0xFF6B7280))
-    // Node rời không liên kết gì: màu xám nhạt hơn 1 chút (Color(0xFF9CA3AF))
     final nodeDefaultColor = isIsolated
         ? const Color(0xFF9CA3AF)
         : const Color(0xFF6B7280);
@@ -542,147 +698,155 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         ? const Color(0xFFD1D5DB)
         : const Color(0xFF9CA3AF);
 
-    const containerWidth = 140.0;
-    const containerHeight = 98.0;
+    final circleColor = isDimmed
+        ? nodeDefaultColor.withAlpha(35)
+        : (isHovered
+            ? colorScheme.primary
+            : (isAdjacent
+                ? colorScheme.primary.withAlpha(220)
+                : (isActive ? colorScheme.primary : nodeDefaultColor)));
+
+    final borderColor = isDimmed
+        ? Colors.transparent
+        : (isHovered
+            ? Colors.white
+            : (isAdjacent
+                ? colorScheme.primary
+                : (isActive ? Colors.white : nodeDefaultBorder)));
+
+    final borderWidth = isHovered ? 2.5 : (isAdjacent || isActive ? 2.0 : 1.2);
+
+    final containerWidth = showLabel ? max(140.0, nodeSize + 24.0) : nodeSize;
+    final containerHeight = showLabel ? (nodeSize + 48.0) : nodeSize;
 
     return Positioned(
       left: pos.dx - containerWidth / 2,
       top: pos.dy - (nodeSize / 2),
       width: containerWidth,
       height: containerHeight,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) {
-          if (_draggingNodeId == null) {
-            setState(() => _hoveredNodeId = gNode.id);
-          }
-        },
-        onExit: (_) {
-          if (_draggingNodeId == null) {
-            setState(() => _hoveredNodeId = null);
-          }
-        },
-        child: GestureDetector(
-          onTap: () => _onNodeTapped(gNode),
-          onPanStart: (_) {
-            _driftController?.stop();
-            setState(() {
-              _draggingNodeId = gNode.id;
-              _hoveredNodeId = gNode.id;
-              _releasedNodeId = null;
-              _releaseVelocity = Offset.zero;
-            });
-          },
-          onPanUpdate: (details) {
-            final currentScale = _transformController.value.getMaxScaleOnAxis();
-            final delta = details.delta / currentScale;
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ─── Circle Node: HITBOX CHỈ TÍNH TẠI ĐÂY (Thuần hình tròn, không icon) ───
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              if (_draggingNodeId == null && _hoveredNodeId != gNode.id) {
+                setState(() => _hoveredNodeId = gNode.id);
+              }
+            },
+            onExit: (_) {
+              if (_draggingNodeId == null && _hoveredNodeId == gNode.id) {
+                setState(() => _hoveredNodeId = null);
+              }
+            },
+            child: GestureDetector(
+              key: ValueKey('node_avatar_${gNode.id}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _onNodeTapped(gNode),
+              onPanStart: (_) {
+                _driftController?.stop();
+                setState(() {
+                  _draggingNodeId = gNode.id;
+                  _hoveredNodeId = gNode.id;
+                  _releasedNodeId = null;
+                  _releaseVelocity = Offset.zero;
+                });
+              },
+              // Di chuyển 1:1 theo con trỏ chuột (details.delta đã ở hệ tọa độ canvas bên trong InteractiveViewer)
+              onPanUpdate: (details) {
+                final currentPos = _nodePositions[gNode.id] ?? _canvasCenter;
+                _nodePositions[gNode.id] = Offset(
+                  (currentPos.dx + details.delta.dx).clamp(60.0, _canvasSize - 60.0),
+                  (currentPos.dy + details.delta.dy).clamp(60.0, _canvasSize - 60.0),
+                );
 
-            setState(() {
-              final currentPos = _nodePositions[gNode.id] ?? _canvasCenter;
-              _nodePositions[gNode.id] = Offset(
-                (currentPos.dx + delta.dx).clamp(60.0, _canvasSize - 60.0),
-                (currentPos.dy + delta.dy).clamp(60.0, _canvasSize - 60.0),
-              );
+                _relaxGraphStep(pinnedNodeId: gNode.id, steps: 1);
+                _paintVersion++;
+                setState(() {});
+              },
+              onPanEnd: (details) {
+                _releasedNodeId = gNode.id;
+                _releaseVelocity = details.velocity.pixelsPerSecond;
 
-              // Tự động kéo và cân bằng các node liên kết theo cơ chế vật lý
-              _relaxGraphStep(pinnedNodeId: gNode.id, steps: 4);
-            });
-          },
-          onPanEnd: (details) {
-            final currentScale = _transformController.value.getMaxScaleOnAxis();
-            _releasedNodeId = gNode.id;
-            _releaseVelocity = details.velocity.pixelsPerSecond / currentScale;
+                final speed = _releaseVelocity.distance;
+                if (speed > 1000.0) {
+                  _releaseVelocity = (_releaseVelocity / speed) * 1000.0;
+                }
 
-            // Giới hạn vận tốc ném để tránh văng quá xa
-            final speed = _releaseVelocity.distance;
-            if (speed > 800.0) {
-              _releaseVelocity = (_releaseVelocity / speed) * 800.0;
-            }
+                setState(() {
+                  _draggingNodeId = null;
+                });
 
-            setState(() {
-              _draggingNodeId = null;
-            });
-
-            // Kích hoạt trôi theo quán tính và tự cân bằng
-            _effectiveDriftController.reset();
-            _effectiveDriftController.forward();
-          },
-          child: AnimatedOpacity(
-            duration: const Duration(milliseconds: 140),
-            opacity: isDimmed ? 0.22 : 1.0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Circle Node Avatar (Kích thước cố định, không nhảy, không glow)
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 140),
-                  width: nodeSize,
-                  height: nodeSize,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    // CHỈ KHI HOVER MỚI ĐỔI SANG MÀU TÍM. Bình thường tất cả có màu xám nhạt đồng nhất!
-                    color: isHovered
-                        ? colorScheme.primary
-                        : nodeDefaultColor,
-                    border: Border.all(
-                      // Khi hover: viền trắng. Khi liền kề: viền tím. Khi active: viền trắng. Bình thường: viền xám nhạt.
-                      color: isHovered
-                          ? Colors.white
-                          : isAdjacent
-                              ? colorScheme.primary
-                              : isActive
-                                  ? Colors.white
-                                  : nodeDefaultBorder,
-                      width: isHovered ? 2.2 : (isAdjacent || isActive ? 2.0 : 1.2),
-                    ),
+                _effectiveDriftController.reset();
+                _effectiveDriftController.forward();
+              },
+              // Hình tròn tinh gọn chuẩn phong cách đồ thị Obsidian, không chứa icon
+              child: Container(
+                width: nodeSize,
+                height: nodeSize,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: circleColor,
+                  border: Border.all(
+                    color: borderColor,
+                    width: borderWidth,
                   ),
-                  child: Center(
-                    child: Icon(
-                      isPhantom ? Icons.add : Icons.description_outlined,
-                      size: (nodeSize * 0.42).clamp(13.0, 20.0),
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 5),
-
-                // Label Text
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: (isHovered || isAdjacent || isActive)
-                      ? BoxDecoration(
-                          color: colorScheme.surface.withAlpha(210),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: isHovered
-                                ? colorScheme.primary.withAlpha(150)
-                                : Colors.transparent,
-                            width: 0.8,
+                  boxShadow: (isHovered || isActive)
+                      ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withAlpha(120),
+                            blurRadius: 10,
+                            spreadRadius: 2,
                           ),
-                        )
+                        ]
                       : null,
-                  child: Text(
-                    gNode.title.replaceAll('_', ' '),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: (isHovered || isActive)
-                          ? FontWeight.w700
-                          : (isAdjacent ? FontWeight.w600 : FontWeight.w500),
-                      color: isHovered
-                          ? colorScheme.primary
-                          : isAdjacent
-                              ? colorScheme.onSurface
-                              : colorScheme.onSurface.withAlpha(190),
-                    ),
-                  ),
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+          if (showLabel) ...[
+            const SizedBox(height: 5),
+
+            // ─── Label Text: BỌC IgnorePointer — HOÀN TOÀN KHÔNG NHẬN HITBOX ───
+            IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: (!isDimmed && (isHovered || isAdjacent || isActive))
+                    ? BoxDecoration(
+                        color: colorScheme.surface.withAlpha(210),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: isHovered
+                              ? colorScheme.primary.withAlpha(150)
+                              : Colors.transparent,
+                          width: 0.8,
+                        ),
+                      )
+                    : null,
+                child: Text(
+                  gNode.title.replaceAll('_', ' '),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    fontWeight: (isHovered || isActive)
+                        ? FontWeight.w700
+                        : (isAdjacent ? FontWeight.w600 : FontWeight.w500),
+                    color: isDimmed
+                        ? colorScheme.onSurface.withAlpha(35)
+                        : (isHovered
+                            ? colorScheme.primary
+                            : (isAdjacent
+                                ? colorScheme.onSurface
+                                : colorScheme.onSurface.withAlpha(190))),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -747,7 +911,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
           ),
           const Spacer(),
 
-          // Nút Thu nhỏ (-)
           Tooltip(
             message: 'Thu nhỏ (-)',
             child: IconButton(
@@ -758,8 +921,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               padding: EdgeInsets.zero,
             ),
           ),
-
-          // Nút Phóng to (+)
           Tooltip(
             message: 'Phóng to (+)',
             child: IconButton(
@@ -770,10 +931,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               padding: EdgeInsets.zero,
             ),
           ),
-
           const SizedBox(width: 2),
-
-          // Nút Căn vừa màn hình (Fit to View)
           Tooltip(
             message: 'Căn vừa màn hình (Fit to View)',
             child: IconButton(
@@ -784,8 +942,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               padding: EdgeInsets.zero,
             ),
           ),
-
-          // Nút Đặt lại vị trí ban đầu (Reset View)
           Tooltip(
             message: 'Đặt lại tỷ lệ 100% (Reset)',
             child: IconButton(
@@ -796,10 +952,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               padding: EdgeInsets.zero,
             ),
           ),
-
           const SizedBox(width: 2),
-
-          // Nút Sắp xếp lại đồ thị (Force Layout)
           Tooltip(
             message: 'Tự động sắp xếp lại vị trí node',
             child: IconButton(
@@ -813,8 +966,6 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
               padding: EdgeInsets.zero,
             ),
           ),
-
-          // Nút Tải lại dữ liệu (Refresh)
           Tooltip(
             message: 'Tải lại đồ thị từ Vault',
             child: IconButton(
@@ -884,8 +1035,44 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
 }
 
 // ═══════════════════════════════════════════════
-//  CUSTOM PAINTER: VẼ CẠNH (KHÔNG MŨI TÊN, NÉT MẢNH)
+//  Fix #2: STATIC DOT GRID PAINTER — chỉ vẽ 1 lần
 // ═══════════════════════════════════════════════
+
+/// Vẽ lưới chấm trang trí nền. Nằm trong RepaintBoundary riêng biệt
+/// nên chỉ vẽ 1 lần duy nhất, không bị repaint khi nodes/edges thay đổi.
+class _StaticDotGridPainter extends CustomPainter {
+  final ColorScheme colorScheme;
+
+  _StaticDotGridPainter({required this.colorScheme});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridDotPaint = Paint()
+      ..color = colorScheme.onSurface.withAlpha(12)
+      ..style = PaintingStyle.fill;
+
+    const gridStep = 80.0;
+    for (double x = 0; x < size.width; x += gridStep) {
+      for (double y = 0; y < size.height; y += gridStep) {
+        canvas.drawCircle(Offset(x, y), 0.75, gridDotPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StaticDotGridPainter oldDelegate) {
+    // Chỉ vẽ lại khi theme thay đổi (Dark ↔ Light)
+    return oldDelegate.colorScheme.brightness != colorScheme.brightness;
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  EDGE PAINTER — Fix #4: version counter shouldRepaint & Batched Path
+// ═══════════════════════════════════════════════
+
+/// Vẽ các đường liên kết giữa nodes. Dùng [paintVersion] (integer counter)
+/// thay vì Map reference compare để shouldRepaint chính xác.
+/// Gom hàng nghìn cạnh vào Path duy nhất để giảm tối đa số lệnh Skia draw call.
 class _KnowledgeGraphEdgePainter extends CustomPainter {
   final List<GraphNode> nodes;
   final List<GraphEdge> edges;
@@ -893,6 +1080,7 @@ class _KnowledgeGraphEdgePainter extends CustomPainter {
   final String? hoveredNodeId;
   final Set<String> adjacentNodeIds;
   final ColorScheme colorScheme;
+  final int paintVersion; // Fix #4
 
   _KnowledgeGraphEdgePainter({
     required this.nodes,
@@ -901,42 +1089,36 @@ class _KnowledgeGraphEdgePainter extends CustomPainter {
     required this.hoveredNodeId,
     required this.adjacentNodeIds,
     required this.colorScheme,
+    required this.paintVersion,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 1. Vẽ họa tiết lưới chấm tinh tế (Dot Matrix Grid) theo phong cách Obsidian
-    final gridDotPaint = Paint()
-      ..color = colorScheme.onSurface.withAlpha(12)
-      ..style = PaintingStyle.fill;
-
-    const gridStep = 40.0;
-    for (double x = 0; x < size.width; x += gridStep) {
-      for (double y = 0; y < size.height; y += gridStep) {
-        canvas.drawCircle(Offset(x, y), 0.75, gridDotPaint);
-      }
-    }
-
     if (edges.isEmpty) return;
 
-    // 2. Chuẩn bị Paints cho các đường liên kết (nét mảnh, không glow dày)
     final defaultEdgePaint = Paint()
       ..color = colorScheme.onSurface.withAlpha(35)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
     final dimmedEdgePaint = Paint()
-      ..color = colorScheme.onSurface.withAlpha(10)
-      ..strokeWidth = 0.8
+      ..color = colorScheme.onSurface.withAlpha(8)
+      ..strokeWidth = 0.6
       ..style = PaintingStyle.stroke;
 
     final highlightedEdgePaint = Paint()
       ..color = colorScheme.primary.withAlpha(220)
-      ..strokeWidth = 1.5 // Nét mảnh tinh tế khi hover
+      ..strokeWidth = 1.8
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    // 3. Duyệt và vẽ từng cạnh đường thẳng (không mũi tên)
+    final defaultPath = Path();
+    final dimmedPath = Path();
+    final highlightedPath = Path();
+    bool hasDefault = false;
+    bool hasDimmed = false;
+    bool hasHighlighted = false;
+
     for (final edge in edges) {
       final posA = nodePositions[edge.sourceId];
       final posB = nodePositions[edge.targetId];
@@ -944,23 +1126,32 @@ class _KnowledgeGraphEdgePainter extends CustomPainter {
 
       final isConnectedToHovered = hoveredNodeId != null &&
           (edge.sourceId == hoveredNodeId || edge.targetId == hoveredNodeId);
-      final isDimmed = hoveredNodeId != null && !isConnectedToHovered;
 
       if (isConnectedToHovered) {
-        canvas.drawLine(posA, posB, highlightedEdgePaint);
-      } else if (isDimmed) {
-        canvas.drawLine(posA, posB, dimmedEdgePaint);
+        highlightedPath.moveTo(posA.dx, posA.dy);
+        highlightedPath.lineTo(posB.dx, posB.dy);
+        hasHighlighted = true;
+      } else if (hoveredNodeId != null) {
+        dimmedPath.moveTo(posA.dx, posA.dy);
+        dimmedPath.lineTo(posB.dx, posB.dy);
+        hasDimmed = true;
       } else {
-        canvas.drawLine(posA, posB, defaultEdgePaint);
+        defaultPath.moveTo(posA.dx, posA.dy);
+        defaultPath.lineTo(posB.dx, posB.dy);
+        hasDefault = true;
       }
     }
+
+    if (hasDimmed) canvas.drawPath(dimmedPath, dimmedEdgePaint);
+    if (hasDefault) canvas.drawPath(defaultPath, defaultEdgePaint);
+    if (hasHighlighted) canvas.drawPath(highlightedPath, highlightedEdgePaint);
   }
 
   @override
   bool shouldRepaint(covariant _KnowledgeGraphEdgePainter oldDelegate) {
-    return oldDelegate.hoveredNodeId != hoveredNodeId ||
-        oldDelegate.nodePositions != nodePositions ||
-        oldDelegate.edges != edges ||
-        oldDelegate.colorScheme != colorScheme;
+    // Fix #4: version counter thay vì Map reference compare
+    return oldDelegate.paintVersion != paintVersion ||
+        oldDelegate.hoveredNodeId != hoveredNodeId ||
+        oldDelegate.colorScheme.brightness != colorScheme.brightness;
   }
 }

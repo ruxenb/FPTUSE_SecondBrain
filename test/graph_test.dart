@@ -41,7 +41,6 @@ void main() {
       themeProvider.dispose();
       vaultProvider.dispose();
       noteProvider.dispose();
-      graphProvider.dispose();
       aiProvider.dispose();
     });
 
@@ -69,16 +68,20 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Mở Vault
-    await vaultProvider.openVault('/vault');
+    await tester.runAsync(() async {
+      await vaultProvider.openVault('/vault');
+    });
     await tester.pumpAndSettle();
 
     // 2. Chuyển sang Knowledge Graph
     final graphIcon = find.byIcon(Icons.hub_outlined);
     expect(graphIcon, findsOneWidget);
     await tester.tap(graphIcon);
+    await tester.runAsync(() async {
+      await Future.delayed(const Duration(milliseconds: 250));
+    });
     await tester.pumpAndSettle();
 
-    // Kiểm tra hiển thị đủ các node từ MockNoteRepository (bao gồm cả node rời Daily Thoughts)
     expect(find.text('Flutter Architecture'), findsOneWidget);
     expect(find.text('Provider Pattern'), findsOneWidget);
     expect(find.text('Agile Scrum Overview'), findsOneWidget);
@@ -86,8 +89,8 @@ void main() {
     expect(find.text('Quick Ideas'), findsOneWidget);
     expect(find.text('Daily Thoughts'), findsOneWidget);
 
-    final flutterArchFinder = find.text('Flutter Architecture');
-    final rectBefore = tester.getRect(flutterArchFinder);
+    final flutterArchAvatarFinder = find.byKey(const ValueKey('node_avatar_flutter_architecture'));
+    final rectBefore = tester.getRect(flutterArchAvatarFinder);
 
     // 3. KIỂM TRA HOVER: KHÔNG BỊ BIẾN MẤT
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -96,7 +99,6 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
-    // Đảm bảo sau khi hover, TẤT CẢ các node vẫn tồn tại nguyên vẹn!
     expect(find.text('Flutter Architecture'), findsOneWidget);
     expect(find.text('Provider Pattern'), findsOneWidget);
     expect(find.text('Agile Scrum Overview'), findsOneWidget);
@@ -104,14 +106,14 @@ void main() {
     expect(find.text('Quick Ideas'), findsOneWidget);
     expect(find.text('Daily Thoughts'), findsOneWidget);
 
-    // 4. KIỂM TRA DRAG: Kéo thả node và các node liên kết tự động cân bằng lại
+    // 4. KIỂM TRA DRAG
     final providerPatternFinder = find.text('Provider Pattern');
     final providerPatternBefore = tester.getRect(providerPatternFinder);
 
-    await tester.drag(flutterArchFinder, const Offset(120, 80));
+    await tester.drag(flutterArchAvatarFinder, const Offset(120, 80));
     await tester.pumpAndSettle();
 
-    final rectAfterDrag = tester.getRect(flutterArchFinder);
+    final rectAfterDrag = tester.getRect(flutterArchAvatarFinder);
     expect(rectAfterDrag.center != rectBefore.center, true,
         reason: 'Node should have moved when dragged');
 
@@ -121,25 +123,21 @@ void main() {
             'Connected node should automatically rebalance and adjust position when neighbor is dragged');
 
     // 5. KIỂM TRA ZOOM CONTROLS
-    // Zoom In (+)
     final zoomInBtn = find.byTooltip('Phóng to (+)');
     expect(zoomInBtn, findsOneWidget);
     await tester.tap(zoomInBtn);
     await tester.pumpAndSettle();
 
-    // Zoom Out (-)
     final zoomOutBtn = find.byTooltip('Thu nhỏ (-)');
     expect(zoomOutBtn, findsOneWidget);
     await tester.tap(zoomOutBtn);
     await tester.pumpAndSettle();
 
-    // Fit to View
     final fitBtn = find.byTooltip('Căn vừa màn hình (Fit to View)');
     expect(fitBtn, findsOneWidget);
     await tester.tap(fitBtn);
     await tester.pumpAndSettle();
 
-    // Reset View
     final resetBtn = find.byTooltip('Đặt lại tỷ lệ 100% (Reset)');
     expect(resetBtn, findsOneWidget);
     await tester.tap(resetBtn);
@@ -155,9 +153,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Flutter Architecture'), findsOneWidget);
 
-    // 7. KIỂM TRA CLICK NODE: Mở note
-    await tester.tap(flutterArchFinder);
+    // 7. KIỂM TRA CLICK NODE: Mở note (click vào node avatar)
+    await tester.tap(flutterArchAvatarFinder);
+    await tester.runAsync(() async {
+      await Future.delayed(const Duration(milliseconds: 250));
+    });
     await tester.pumpAndSettle();
+
 
     final graphProviderInstance = tester
         .element(find.byType(KnowledgeGraphScreen))
