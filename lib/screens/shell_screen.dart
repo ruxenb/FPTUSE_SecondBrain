@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
@@ -17,13 +19,41 @@ import 'sidebar/sidebar_explorer.dart';
 /// AppBar: Tên Vault, toggle Sidebar, nút Graph, nút Dark/Light
 /// StatusBar: Đường dẫn note, số từ, trạng thái lưu
 class ShellScreen extends StatefulWidget {
-  const ShellScreen({super.key});
+  const ShellScreen({
+    super.key,
+    this.autoOpenDefaultVault = false,
+  });
+
+  final bool autoOpenDefaultVault;
 
   @override
   State<ShellScreen> createState() => _ShellScreenState();
 }
 
 class _ShellScreenState extends State<ShellScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoOpenDefaultVault) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _autoOpenDefaultVault();
+      });
+    }
+  }
+
+  Future<void> _autoOpenDefaultVault() async {
+    if (!mounted) return;
+    final vaultProvider = context.read<VaultProvider>();
+    if (!vaultProvider.hasVault) {
+      final defaultVault = Directory('sample_vault');
+      if (defaultVault.existsSync()) {
+        await vaultProvider.openVault(defaultVault.absolute.path);
+        if (mounted) {
+          context.read<NoteProvider>().setVaultRootPath(defaultVault.absolute.path);
+        }
+      }
+    }
+  }
   // ─── Column Widths ───
   double _sidebarWidth = AppConstants.defaultSidebarWidth;
   double _aiPanelWidth = AppConstants.defaultAiPanelWidth;

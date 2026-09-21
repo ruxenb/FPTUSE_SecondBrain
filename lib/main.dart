@@ -37,7 +37,12 @@ void main() {
 }
 
 class FPTUSecondBrainApp extends StatelessWidget {
-  const FPTUSecondBrainApp({super.key});
+  const FPTUSecondBrainApp({
+    super.key,
+    this.autoOpenDefaultVault = true,
+  });
+
+  final bool autoOpenDefaultVault;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +100,7 @@ class FPTUSecondBrainApp extends StatelessWidget {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const ShellScreen(),
+            home: ShellScreen(autoOpenDefaultVault: autoOpenDefaultVault),
           );
         },
       ),
