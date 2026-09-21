@@ -362,13 +362,17 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
         displacements[node.id] = displacements[node.id]! + deltaToCenter * 0.0015;
       }
 
-      // 4. Cập nhật vị trí các node không bị pin
+      // 4. Cập nhật vị trí các node không bị pin với hệ số Damping và Deadband chống rung
+      const deadband = 1.2; // Bỏ qua dao động vi mô dưới 1.2px để triệt tiêu hoàn toàn hiện tượng rung
+      const damping = 0.65; // Giảm chấn để chuyển động đầm, không bị giật nảy lò xo qua lại
+
       for (final node in nodes) {
         if (node.id == pinnedNodeId) continue;
         final disp = displacements[node.id]!;
         final len = disp.distance;
-        if (len > 0) {
-          final step = (disp / len) * min(len, effectiveMaxStep);
+        if (len > deadband) {
+          final dampedLen = (len - deadband) * damping;
+          final step = (disp / len) * min(dampedLen, effectiveMaxStep);
           totalDisplacement += step.distance;
           final cur = _nodePositions[node.id]!;
           _nodePositions[node.id] = Offset(
@@ -387,7 +391,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
   // ═══════════════════════════════════════════
 
   /// Khi người dùng thả tay, node tiếp tục trôi chậm dần theo quán tính.
-  /// Dừng sớm khi tổng displacement < 0.5 (Fix #5).
+  /// Dừng sớm khi tổng displacement < 1.5 hoặc quán tính tắt.
   void _onDriftTick() {
     if (!mounted || _nodePositions.isEmpty) return;
 
@@ -405,9 +409,9 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
       }
     }
 
-    // Fix #5: giảm steps từ 2 → 1, dừng sớm khi graph ổn định hoặc quán tính tắt
+    // Dừng sớm khi graph đã ổn định hoặc quán tính tắt để tránh rung dư thừa
     final totalDisp = _relaxGraphStep(pinnedNodeId: null, steps: 1, maxStepScale: decay);
-    if (totalDisp < 1.0 || decay < 0.15) {
+    if (totalDisp < 1.5 || decay < 0.20) {
       _driftController?.stop(); // Graph đã ổn định, dừng animation sớm
       return;
     }
@@ -442,7 +446,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
 
     final currentMatrix = _transformController.value;
     final currentScale = currentMatrix.getMaxScaleOnAxis();
-    final newScale = (currentScale * factor).clamp(0.04, 3.5);
+    final newScale = (currentScale * factor).clamp(0.04, 8.0);
     final actualFactor = newScale / currentScale;
 
     final translation = Matrix4.translationValues(center.dx, center.dy, 0.0);
@@ -597,9 +601,14 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
                   constrained: false,
                   boundaryMargin: EdgeInsets.all(_canvasSize * 0.35),
                   minScale: 0.04,
-                  maxScale: 3.5,
+                  maxScale: 8.0,
                   scaleFactor: 280.0, // Cuộn chuột nhạy và nhanh hơn gấp 4 lần (trước là 1200.0)
                   transformationController: _transformController,
+                  onInteractionStart: (_) {
+                    if (_hoveredNodeId != null && _draggingNodeId == null) {
+                      setState(() => _hoveredNodeId = null);
+                    }
+                  },
                   child: SizedBox(
                     width: _canvasSize,
                     height: _canvasSize,
@@ -614,6 +623,18 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
                                 colorScheme: colorScheme,
                               ),
                             ),
+                          ),
+                        ),
+
+                        // Lớp nền bắt tap để bỏ chọn/bỏ hover khi click ra vùng trống
+                        Positioned.fill(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: () {
+                              if (_hoveredNodeId != null) {
+                                setState(() => _hoveredNodeId = null);
+                              }
+                            },
                           ),
                         ),
 
@@ -716,8 +737,8 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
 
     final borderWidth = isHovered ? 2.5 : (isAdjacent || isActive ? 2.0 : 1.2);
 
-    final containerWidth = showLabel ? max(140.0, nodeSize + 24.0) : nodeSize;
-    final containerHeight = showLabel ? (nodeSize + 48.0) : nodeSize;
+    final containerWidth = showLabel ? max(150.0, nodeSize + 28.0) : nodeSize;
+    final containerHeight = showLabel ? (nodeSize + 52.0) : nodeSize;
 
     return Positioned(
       left: pos.dx - containerWidth / 2,
@@ -776,10 +797,17 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
 
                 setState(() {
                   _draggingNodeId = null;
+                  _hoveredNodeId = null;
                 });
 
                 _effectiveDriftController.reset();
                 _effectiveDriftController.forward();
+              },
+              onPanCancel: () {
+                setState(() {
+                  _draggingNodeId = null;
+                  _hoveredNodeId = null;
+                });
               },
               // Hình tròn tinh gọn chuẩn phong cách đồ thị Obsidian, không chứa icon
               child: Container(
@@ -830,7 +858,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: (isHovered || isActive) ? 11.5 : 11.0,
                     fontWeight: (isHovered || isActive)
                         ? FontWeight.w700
                         : (isAdjacent ? FontWeight.w600 : FontWeight.w500),

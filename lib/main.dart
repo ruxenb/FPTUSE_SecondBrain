@@ -28,7 +28,7 @@ import 'screens/shell_screen.dart';
 
 /// Cờ giữ Mock cho các module chưa tích hợp dịch vụ thật.
 const bool kUseMock = false;
-const AIRuntimeConfig aiConfig = AIRuntimeConfig.environment;
+final AIRuntimeConfig aiConfig = AIRuntimeConfig.load();
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();

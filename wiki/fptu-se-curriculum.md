@@ -1,0 +1,53 @@
+# FPT University Software Engineering Curriculum
+
+**Summary**: Lộ trình đào tạo chuẩn 9 học kỳ ngành Kỹ thuật Phần mềm (Software Engineering) tại Đại học FPT từ nền tảng lập trình đến đồ án tốt nghiệp Capstone.
+
+**Sources**: raw/Semester_1 đến raw/Semester_9
+
+**Last updated**: 2026-09-20
+
+---
+
+Chương trình đào tạo Kỹ sư Phần mềm tại Đại học FPT được thiết kế theo chuẩn quốc tế ACM/IEEE, trang bị đầy đủ năng lực từ lập trình cốt lõi, kiến trúc hệ thống, quy trình Agile Scrum đến thực tập doanh nghiệp (OJT) và đồ án tốt nghiệp.
+
+## Lộ trình phát triển 5 Giai đoạn
+
+1. **Giai đoạn 1: Nền tảng Khoa học Máy tính & Cơ sở Lập trình (Kỳ 1 – 3)**
+   - Khởi đầu với tư duy lập trình C tại [[semester-1]] qua môn [[prf192-programming-fundamentals]].
+   - Chuyển tiếp lên Lập trình hướng đối tượng Java tại [[semester-2]] với [[pro192-object-oriented-programming]] và hệ điều hành [[osg202-operating-systems]].
+   - Làm chủ cấu trúc dữ liệu, giải thuật và cơ sở dữ liệu tại [[semester-3]] với [[csd201-data-structures-and-algorithms]] và [[dbi202-database-systems]].
+
+2. **Giai đoạn 2: Kỹ nghệ Phần mềm & Dự án Nòng cốt (Kỳ 4 – 5)**
+   - Tiếp cận quy trình công nghệ phần mềm tại [[semester-4]] qua [[swe201c-software-engineering]] và phát triển web [[prj301-java-web-development]].
+   - Thực chiến dự án nhóm chuyên sâu tại [[semester-5]] qua [[swp391-software-development-project]], kết hợp kiểm thử [[swt301-software-testing]] và yêu cầu [[swr302-software-requirements]].
+
+3. **Giai đoạn 3: Đào tạo Thực tế Doanh nghiệp (Kỳ 6)**
+   - Sinh viên làm việc thực tế tại các doanh nghiệp công nghệ trong [[semester-6]] với [[ojt202-on-the-job-training]].
+
+4. **Giai đoạn 4: Kiến trúc Hệ thống & Chuyên sâu (Kỳ 7 – 8)**
+   - Thiết kế kiến trúc cao cấp tại [[semester-7]] với [[swd392-software-architecture-and-design]] và quản lý dự án [[pmg201c-project-management]].
+   - Phát triển ứng dụng di động đa nền tảng tại [[semester-8]] qua [[prm393-mobile-programming]].
+
+5. **Giai đoạn 5: Đồ án Tốt nghiệp (Kỳ 9)**
+   - Hiện thực hóa sản phẩm phần mềm quy mô lớn tại [[semester-9]] qua đồ án tốt nghiệp [[sep490-se-capstone-project]].
+
+## Chuỗi Môn học Tiên quyết Cốt lõi
+
+- [[prf192-programming-fundamentals]] → [[pro192-object-oriented-programming]] → [[csd201-data-structures-and-algorithms]]
+- [[pro192-object-oriented-programming]] → [[prm393-mobile-programming]]
+- [[dbi202-database-systems]] → [[prj301-java-web-development]] → [[swp391-software-development-project]]
+- [[swe201c-software-engineering]] → [[swp391-software-development-project]] → [[sep490-se-capstone-project]]
+- [[swd392-software-architecture-and-design]] → [[sep490-se-capstone-project]]
+
+## Related pages
+
+- [[semester-1]]
+- [[semester-2]]
+- [[semester-3]]
+- [[semester-4]]
+- [[semester-5]]
+- [[semester-6]]
+- [[semester-7]]
+- [[semester-8]]
+- [[semester-9]]
+- [[software-engineering-lifecycle]]
