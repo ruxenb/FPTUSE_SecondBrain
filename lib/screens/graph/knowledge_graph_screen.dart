@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/graph_provider.dart';
@@ -58,7 +59,12 @@ class _SpatialGrid {
 /// - Fix #5: Drift animation dừng sớm khi graph ổn định
 /// - Fix #6: RepaintBoundary cho từng node (GPU isolation only, không ngăn Dart rebuild)
 class KnowledgeGraphScreen extends StatefulWidget {
-  const KnowledgeGraphScreen({super.key});
+  final void Function(GraphNode node, {required bool isCtrlPressed})? onNodeSelected;
+
+  const KnowledgeGraphScreen({
+    this.onNodeSelected,
+    super.key,
+  });
 
   @override
   State<KnowledgeGraphScreen> createState() => _KnowledgeGraphScreenState();
@@ -836,39 +842,44 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
           if (showLabel) ...[
             const SizedBox(height: 5),
 
-            // ─── Label Text: BỌC IgnorePointer — HOÀN TOÀN KHÔNG NHẬN HITBOX ───
-            IgnorePointer(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: (!isDimmed && (isHovered || isAdjacent || isActive))
-                    ? BoxDecoration(
-                        color: colorScheme.surface.withAlpha(210),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: isHovered
-                              ? colorScheme.primary.withAlpha(150)
-                              : Colors.transparent,
-                          width: 0.8,
-                        ),
-                      )
-                    : null,
-                child: Text(
-                  gNode.title.replaceAll('_', ' '),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: (isHovered || isActive) ? 11.5 : 11.0,
-                    fontWeight: (isHovered || isActive)
-                        ? FontWeight.w700
-                        : (isAdjacent ? FontWeight.w600 : FontWeight.w500),
-                    color: isDimmed
-                        ? colorScheme.onSurface.withAlpha(35)
-                        : (isHovered
-                            ? colorScheme.primary
-                            : (isAdjacent
-                                ? colorScheme.onSurface
-                                : colorScheme.onSurface.withAlpha(190))),
+            // ─── Label Text: Cho phép click vào text để mở ghi chú ───
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _onNodeTapped(gNode),
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: (!isDimmed && (isHovered || isAdjacent || isActive))
+                      ? BoxDecoration(
+                          color: colorScheme.surface.withAlpha(210),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isHovered
+                                ? colorScheme.primary.withAlpha(150)
+                                : Colors.transparent,
+                            width: 0.8,
+                          ),
+                        )
+                      : null,
+                  child: Text(
+                    gNode.title.replaceAll('_', ' '),
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: (isHovered || isActive) ? 11.5 : 11.0,
+                      fontWeight: (isHovered || isActive)
+                          ? FontWeight.w700
+                          : (isAdjacent ? FontWeight.w600 : FontWeight.w500),
+                      color: isDimmed
+                          ? colorScheme.onSurface.withAlpha(35)
+                          : (isHovered
+                              ? colorScheme.primary
+                              : (isAdjacent
+                                  ? colorScheme.onSurface
+                                  : colorScheme.onSurface.withAlpha(190))),
+                    ),
                   ),
                 ),
               ),
@@ -879,7 +890,7 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
     );
   }
 
-  /// Xử lý click vào node: mở note trong Editor
+  /// Xử lý click vào node: hỗ trợ click thường và giữ Ctrl+click
   void _onNodeTapped(GraphNode gNode) {
     if (gNode.path.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -891,127 +902,180 @@ class _KnowledgeGraphScreenState extends State<KnowledgeGraphScreen>
       return;
     }
 
-    final noteProvider = context.read<NoteProvider>();
-    final graphProvider = context.read<GraphProvider>();
+    final isCtrlPressed = HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlLeft) ||
+        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.controlRight);
 
-    noteProvider.openNote(gNode.path);
-    graphProvider.setActiveNode(gNode.id);
+    if (widget.onNodeSelected != null) {
+      widget.onNodeSelected!(gNode, isCtrlPressed: isCtrlPressed);
+    } else {
+      final noteProvider = context.read<NoteProvider>();
+      final graphProvider = context.read<GraphProvider>();
 
-    debugPrint('[KnowledgeGraph] Clicked node: ${gNode.title}');
+      noteProvider.openNote(gNode.path);
+      graphProvider.setActiveNode(gNode.id);
+    }
+
+    debugPrint('[KnowledgeGraph] Clicked node: ${gNode.title}, isCtrlPressed: $isCtrlPressed');
   }
 
   // ═══════════════════════════════════════════
   //  TOOLBAR
   // ═══════════════════════════════════════════
   Widget _buildToolbar(ColorScheme colorScheme, GraphProvider graphProvider) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(color: colorScheme.outline.withAlpha(40)),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.hub, size: 14, color: colorScheme.primary),
-          const SizedBox(width: 6),
-          Text(
-            'Knowledge Graph',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: colorScheme.onSurface.withAlpha(210),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: colorScheme.primary.withAlpha(25),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              '${graphProvider.nodes.length} nodes · ${graphProvider.edges.length} edges',
-              style: TextStyle(fontSize: 10, color: colorScheme.primary, fontWeight: FontWeight.w600),
-            ),
-          ),
-          const Spacer(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final showTitle = width >= 540;
+        final showHint = width >= 860;
+        final showStats = width >= 400;
+        final showExtraActions = width >= 360;
 
-          Tooltip(
-            message: 'Thu nhỏ (-)',
-            child: IconButton(
-              icon: Icon(Icons.remove, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: () => _zoom(0.8),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
+        final btnStyle = IconButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(22, 22),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        );
+
+        return Container(
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            border: Border(
+              bottom: BorderSide(color: colorScheme.outline.withAlpha(40)),
             ),
           ),
-          Tooltip(
-            message: 'Phóng to (+)',
-            child: IconButton(
-              icon: Icon(Icons.add, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: () => _zoom(1.25),
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
-            ),
+          child: Row(
+            children: [
+              Icon(Icons.hub, size: 14, color: colorScheme.primary),
+              if (showTitle) ...[
+                const SizedBox(width: 5),
+                Text(
+                  'Knowledge Graph',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSurface.withAlpha(210),
+                  ),
+                ),
+              ],
+              if (showStats) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withAlpha(25),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '${graphProvider.nodes.length}n · ${graphProvider.edges.length}e',
+                    style: TextStyle(fontSize: 10, color: colorScheme.primary, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+              if (showHint) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surfaceContainerHighest.withAlpha(90),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.mouse_outlined, size: 11, color: colorScheme.onSurface.withAlpha(150)),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Click: Mở · Ctrl+Click: Song song',
+                        style: TextStyle(fontSize: 10, color: colorScheme.onSurface.withAlpha(160)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const Spacer(),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Tooltip(
+                        message: 'Thu nhỏ (-)',
+                        child: IconButton(
+                          icon: Icon(Icons.remove, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                          onPressed: () => _zoom(0.8),
+                          style: btnStyle,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Tooltip(
+                        message: 'Phóng to (+)',
+                        child: IconButton(
+                          icon: Icon(Icons.add, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                          onPressed: () => _zoom(1.25),
+                          style: btnStyle,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Tooltip(
+                        message: 'Căn vừa màn hình (Fit to View)',
+                        child: IconButton(
+                          icon: Icon(Icons.crop_free, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                          onPressed: _fitToScreen,
+                          style: btnStyle,
+                        ),
+                      ),
+                      if (showExtraActions) ...[
+                        const SizedBox(width: 2),
+                        Tooltip(
+                          message: 'Đặt lại tỷ lệ 100% (Reset)',
+                          child: IconButton(
+                            icon: Icon(Icons.center_focus_strong, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                            onPressed: _resetView,
+                            style: btnStyle,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        Tooltip(
+                          message: 'Tự động sắp xếp lại vị trí node',
+                          child: IconButton(
+                            icon: Icon(Icons.auto_fix_high, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                            onPressed: () {
+                              _initializeLayout();
+                              _fitToScreen();
+                            },
+                            style: btnStyle,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(width: 2),
+                      Tooltip(
+                        message: 'Tải lại đồ thị từ Vault',
+                        child: IconButton(
+                          icon: Icon(Icons.refresh, size: 15, color: colorScheme.onSurface.withAlpha(160)),
+                          onPressed: () async {
+                            await _loadGraphData();
+                            if (mounted) {
+                              _initializeLayout();
+                              _fitToScreen();
+                            }
+                          },
+                          style: btnStyle,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 2),
-          Tooltip(
-            message: 'Căn vừa màn hình (Fit to View)',
-            child: IconButton(
-              icon: Icon(Icons.crop_free, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: _fitToScreen,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          Tooltip(
-            message: 'Đặt lại tỷ lệ 100% (Reset)',
-            child: IconButton(
-              icon: Icon(Icons.center_focus_strong, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: _resetView,
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Tooltip(
-            message: 'Tự động sắp xếp lại vị trí node',
-            child: IconButton(
-              icon: Icon(Icons.auto_fix_high, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: () {
-                _initializeLayout();
-                _fitToScreen();
-              },
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-          Tooltip(
-            message: 'Tải lại đồ thị từ Vault',
-            child: IconButton(
-              icon: Icon(Icons.refresh, size: 15, color: colorScheme.onSurface.withAlpha(160)),
-              onPressed: () async {
-                await _loadGraphData();
-                if (mounted) {
-                  _initializeLayout();
-                  _fitToScreen();
-                }
-              },
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
-              padding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

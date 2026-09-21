@@ -42,11 +42,14 @@ class BacklinksPanel extends StatelessWidget {
                     itemCount: backlinks.length,
                     itemBuilder: (context, index) {
                       final title = backlinks[index];
-                      return ListTile(
-                        dense: true,
-                        leading: const Icon(Icons.link, size: 16),
-                        title: Text(title, overflow: TextOverflow.ellipsis),
-                        onTap: () => onOpenBacklink(title),
+                      return Material(
+                        type: MaterialType.transparency,
+                        child: ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.link, size: 16),
+                          title: Text(title, overflow: TextOverflow.ellipsis),
+                          onTap: () => onOpenBacklink(title),
+                        ),
                       );
                     },
                   ),

@@ -10,7 +10,9 @@ import '../../providers/vault_provider.dart';
 
 /// Sidebar quản lý Vault: chọn thư mục, duyệt Markdown và thao tác file.
 class SidebarExplorer extends StatefulWidget {
-  const SidebarExplorer({super.key});
+  final ValueChanged<String>? onNoteSelected;
+
+  const SidebarExplorer({super.key, this.onNoteSelected});
 
   @override
   State<SidebarExplorer> createState() => _SidebarExplorerState();
@@ -59,6 +61,7 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
       return;
     }
     await context.read<NoteProvider>().openNote(createdItem.path);
+    widget.onNoteSelected?.call(createdItem.path);
   }
 
   Future<void> _rename(VaultItem item) async {
@@ -311,6 +314,7 @@ class _SidebarExplorerState extends State<SidebarExplorer> {
               );
             } else {
               await context.read<NoteProvider>().openNote(item.path);
+              widget.onNoteSelected?.call(item.path);
             }
           },
           onSecondaryTapDown: (details) =>

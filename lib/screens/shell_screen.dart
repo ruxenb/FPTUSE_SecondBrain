@@ -5,6 +5,7 @@ import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_constants.dart';
+import '../providers/graph_provider.dart';
 import '../providers/note_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/vault_provider.dart';
@@ -68,6 +69,9 @@ class _ShellScreenState extends State<ShellScreen> {
 
   // ─── View State ───
   bool _showGraphView = false;
+  bool _isGraphSplit = false;
+  double _graphSplitRatio = 0.5;
+  bool _isGraphSplitterHovered = false;
 
   // ─── Saved widths before collapse (để khôi phục khi expand lại) ───
   double _savedSidebarWidth = AppConstants.defaultSidebarWidth;
@@ -94,7 +98,15 @@ class _ShellScreenState extends State<ShellScreen> {
                 if (!_isSidebarCollapsed) ...[
                   SizedBox(
                     width: _sidebarWidth,
-                    child: const SidebarExplorer(),
+                    child: SidebarExplorer(
+                      onNoteSelected: (notePath) {
+                        if (_showGraphView && !_isGraphSplit) {
+                          setState(() {
+                            _showGraphView = false;
+                          });
+                        }
+                      },
+                    ),
                   ),
 
                   // ─── Left Splitter (kéo giãn Sidebar ↔ Editor) ───
@@ -113,16 +125,11 @@ class _ShellScreenState extends State<ShellScreen> {
                   ),
                 ],
 
-                // ═══ CỘT 2: EDITOR hoặc GRAPH (Member 2 / Member 4) ═══
+                // ═══ CỘT 2: EDITOR hoặc GRAPH hoặc SONG SONG (Member 2 / Member 4) ═══
                 Expanded(
                   child: Container(
                     color: colorScheme.surface.withAlpha(40),
-                    child: _showGraphView
-                        ? const KnowledgeGraphScreen()
-                        : NoteEditorScreen(
-                            onCreateMissingNote: (title) =>
-                                _createMissingNote(context, title),
-                          ),
+                    child: _buildCentralContent(context, colorScheme),
                   ),
                 ),
 
@@ -253,15 +260,27 @@ class _ShellScreenState extends State<ShellScreen> {
 
         // Toggle Graph View
         Tooltip(
-          message: _showGraphView ? 'Về Editor' : 'Knowledge Graph',
+          message: _showGraphView
+              ? (_isGraphSplit ? 'Đóng chế độ chia đôi (về Editor)' : 'Về Editor')
+              : 'Knowledge Graph',
           child: IconButton(
             icon: Icon(
-              _showGraphView ? Icons.edit_note : Icons.hub_outlined,
+              _showGraphView
+                  ? (_isGraphSplit ? Icons.vertical_split : Icons.edit_note)
+                  : Icons.hub_outlined,
               size: 18,
               color: _showGraphView ? colorScheme.primary : null,
             ),
             onPressed: () {
-              setState(() => _showGraphView = !_showGraphView);
+              setState(() {
+                if (_showGraphView) {
+                  _showGraphView = false;
+                  _isGraphSplit = false;
+                } else {
+                  _showGraphView = true;
+                  _isGraphSplit = false;
+                }
+              });
             },
           ),
         ),
@@ -408,6 +427,135 @@ class _ShellScreenState extends State<ShellScreen> {
       title,
     );
     return createdItem?.path;
+  }
+
+  // ═══════════════════════════════════════════
+  //  CENTRAL CONTENT & GRAPH SPLIT (Member 2 / Member 4)
+  // ═══════════════════════════════════════════
+  void _handleGraphNodeSelected(
+    BuildContext context,
+    GraphNode node, {
+    required bool isCtrlPressed,
+  }) {
+    final noteProvider = context.read<NoteProvider>();
+    final graphProvider = context.read<GraphProvider>();
+
+    noteProvider.openNote(node.path);
+    graphProvider.setActiveNode(node.id);
+
+    setState(() {
+      if (isCtrlPressed) {
+        // Giữ Ctrl + click: Mở file editor song song với graph
+        _showGraphView = true;
+        _isGraphSplit = true;
+      } else {
+        // Click bình thường: Mở markdown tương ứng mà không mở graph
+        _showGraphView = false;
+        _isGraphSplit = false;
+      }
+    });
+  }
+
+  Widget _buildCentralContent(BuildContext context, ColorScheme colorScheme) {
+    final editorWidget = NoteEditorScreen(
+      onCreateMissingNote: (title) => _createMissingNote(context, title),
+    );
+
+    final graphWidget = KnowledgeGraphScreen(
+      onNodeSelected: (node, {required isCtrlPressed}) =>
+          _handleGraphNodeSelected(context, node, isCtrlPressed: isCtrlPressed),
+    );
+
+    if (_showGraphView && _isGraphSplit) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final graphWidth = (totalWidth * _graphSplitRatio).clamp(240.0, totalWidth - 240.0);
+          final editorWidth = (totalWidth - graphWidth - 4.0).clamp(200.0, totalWidth);
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ─── Bên trái: Knowledge Graph ───
+              SizedBox(
+                width: graphWidth,
+                child: Stack(
+                  children: [
+                    Positioned.fill(child: graphWidget),
+                    // Nút điều khiển nhanh cho Split View
+                    Positioned(
+                      top: 6,
+                      right: 8,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: 'Mở rộng toàn màn hình Graph',
+                            child: IconButton.filledTonal(
+                              icon: const Icon(Icons.fullscreen, size: 14),
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                setState(() {
+                                  _isGraphSplit = false;
+                                  _showGraphView = true;
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Tooltip(
+                            message: 'Đóng Graph (chỉ xem Editor)',
+                            child: IconButton.filledTonal(
+                              icon: const Icon(Icons.close, size: 14),
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints(maxWidth: 26, maxHeight: 26),
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                setState(() {
+                                  _isGraphSplit = false;
+                                  _showGraphView = false;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ─── Splitter kéo giãn giữa Graph và Editor ───
+              _buildResizableSplitter(
+                isHovered: _isGraphSplitterHovered,
+                onHoverChanged: (h) => setState(() => _isGraphSplitterHovered = h),
+                onDragUpdate: (details) {
+                  setState(() {
+                    final newWidth = (graphWidth + details.delta.dx).clamp(240.0, totalWidth - 240.0);
+                    _graphSplitRatio = newWidth / totalWidth;
+                  });
+                },
+                colorScheme: colorScheme,
+              ),
+
+              // ─── Bên phải: Note Editor ───
+              SizedBox(
+                width: editorWidth,
+                child: editorWidget,
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    if (_showGraphView) {
+      return graphWidget;
+    }
+
+    return editorWidget;
   }
 
   Widget _statusDivider(ColorScheme colorScheme) {

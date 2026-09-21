@@ -99,14 +99,20 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
             ],
           ),
         Expanded(
-          child: Row(
-            children: [
-              Expanded(child: _buildEditorArea(context, provider, note)),
-              BacklinksPanel(
-                backlinks: note.backlinks,
-                onOpenBacklink: _openWikiLink,
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final showBacklinks = constraints.maxWidth >= 520;
+              return Row(
+                children: [
+                  Expanded(child: _buildEditorArea(context, provider, note)),
+                  if (showBacklinks)
+                    BacklinksPanel(
+                      backlinks: note.backlinks,
+                      onOpenBacklink: _openWikiLink,
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -253,62 +259,78 @@ class _EditorToolbar extends StatelessWidget {
         ? 'Unsaved changes'
         : 'Saved';
 
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Theme.of(context).dividerColor),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              note.title,
-              style: Theme.of(context).textTheme.titleMedium,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 750;
+        final isVeryCompact = constraints.maxWidth < 450;
+
+        return Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: Theme.of(context).dividerColor),
             ),
           ),
-          Text(
-            '$wordCount words',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(width: 16),
-          Text(
-            status,
-            key: const Key('save-status'),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Save (Ctrl+S)',
-            onPressed: isSaving ? null : onSave,
-            icon: const Icon(Icons.save_outlined),
-          ),
-          SegmentedButton<EditorView>(
-            segments: const [
-              ButtonSegment(
-                value: EditorView.edit,
-                label: Text('Edit'),
-                icon: Icon(Icons.edit_outlined),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  note.title,
+                  style: Theme.of(context).textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              ButtonSegment(
-                value: EditorView.preview,
-                label: Text('Preview'),
-                icon: Icon(Icons.visibility_outlined),
+              if (!isCompact) ...[
+                Text(
+                  '$wordCount words',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(width: 12),
+              ],
+              if (!isVeryCompact) ...[
+                Text(
+                  status,
+                  key: const Key('save-status'),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(width: 8),
+              ],
+              IconButton(
+                tooltip: 'Save (Ctrl+S)',
+                onPressed: isSaving ? null : onSave,
+                icon: const Icon(Icons.save_outlined),
               ),
-              ButtonSegment(
-                value: EditorView.split,
-                label: Text('Split'),
-                icon: Icon(Icons.vertical_split),
+              SegmentedButton<EditorView>(
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                segments: [
+                  ButtonSegment(
+                    value: EditorView.edit,
+                    label: isCompact ? null : const Text('Edit'),
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  ButtonSegment(
+                    value: EditorView.preview,
+                    label: isCompact ? null : const Text('Preview'),
+                    icon: const Icon(Icons.visibility_outlined),
+                  ),
+                  ButtonSegment(
+                    value: EditorView.split,
+                    label: isCompact ? null : const Text('Split'),
+                    icon: const Icon(Icons.vertical_split),
+                  ),
+                ],
+                selected: {view},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) => onViewChanged(selection.first),
               ),
             ],
-            selected: {view},
-            showSelectedIcon: false,
-            onSelectionChanged: (selection) => onViewChanged(selection.first),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

@@ -12,6 +12,8 @@ import 'package:fptu_se_second_brain/providers/graph_provider.dart';
 import 'package:fptu_se_second_brain/providers/note_provider.dart';
 import 'package:fptu_se_second_brain/providers/theme_provider.dart';
 import 'package:fptu_se_second_brain/providers/vault_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:fptu_se_second_brain/screens/editor/note_editor_screen.dart';
 import 'package:fptu_se_second_brain/screens/graph/knowledge_graph_screen.dart';
 import 'package:fptu_se_second_brain/screens/shell_screen.dart';
 import 'package:provider/provider.dart';
@@ -153,21 +155,58 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Flutter Architecture'), findsOneWidget);
 
-    // 7. KIỂM TRA CLICK NODE: Mở note (click vào node avatar)
+    // 7. KIỂM TRA CLICK NODE THƯỜNG: Mở note trực tiếp trong Editor mà không mở Graph
     await tester.tap(flutterArchAvatarFinder);
     await tester.runAsync(() async {
       await Future.delayed(const Duration(milliseconds: 250));
     });
     await tester.pumpAndSettle();
 
+    // Graph đóng lại, NoteEditorScreen được mở
+    expect(find.byType(NoteEditorScreen), findsOneWidget);
+    expect(find.byType(KnowledgeGraphScreen), findsNothing);
 
-    final graphProviderInstance = tester
-        .element(find.byType(KnowledgeGraphScreen))
-        .read<GraphProvider>();
-    expect(graphProviderInstance.activeNodeId, 'flutter_architecture');
+    final shellElement = tester.element(find.byType(ShellScreen));
+    expect(shellElement.read<GraphProvider>().activeNodeId, 'flutter_architecture');
+    expect(shellElement.read<NoteProvider>().currentNote?.title, 'Flutter_Architecture');
 
-    final noteProviderInstance =
-        tester.element(find.byType(KnowledgeGraphScreen)).read<NoteProvider>();
-    expect(noteProviderInstance.currentNote?.title, 'Flutter_Architecture');
+    // 8. KIỂM TRA CTRL + CLICK: Mở song song Note Editor và Knowledge Graph
+    // Mở lại Graph
+    await tester.tap(find.byIcon(Icons.hub_outlined));
+    await tester.pumpAndSettle();
+    expect(find.byType(KnowledgeGraphScreen), findsOneWidget);
+
+    // Giữ Ctrl và click vào node Provider Pattern
+    final providerPatternAvatarFinder = find.byKey(const ValueKey('node_avatar_provider_pattern'));
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.tap(providerPatternAvatarFinder);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.runAsync(() async {
+      await Future.delayed(const Duration(milliseconds: 250));
+    });
+    await tester.pumpAndSettle();
+
+    // Cả hai màn hình đều hiển thị song song
+    expect(find.byType(KnowledgeGraphScreen), findsOneWidget);
+    expect(find.byType(NoteEditorScreen), findsOneWidget);
+    expect(find.byTooltip('Mở rộng toàn màn hình Graph'), findsOneWidget);
+    expect(find.byTooltip('Đóng Graph (chỉ xem Editor)'), findsOneWidget);
+    expect(shellElement.read<GraphProvider>().activeNodeId, 'provider_pattern');
+    expect(shellElement.read<NoteProvider>().currentNote?.title, 'Provider_Pattern');
+
+    // 9. KIỂM TRA: Mở Graph toàn màn hình, sau đó click file trong sidebar sẽ mở editor
+    await tester.tap(find.byTooltip('Mở rộng toàn màn hình Graph'));
+    await tester.pumpAndSettle();
+    expect(find.byType(KnowledgeGraphScreen), findsOneWidget);
+    expect(find.byType(NoteEditorScreen), findsNothing);
+
+    // Click vào file trên SidebarExplorer (Quick_Ideas.md nằm ở root của vault)
+    await tester.tap(find.text('Quick_Ideas.md'));
+    await tester.pumpAndSettle();
+
+    // Phải trở về NoteEditorScreen với note được mở
+    expect(find.byType(NoteEditorScreen), findsOneWidget);
+    expect(find.byType(KnowledgeGraphScreen), findsNothing);
+    expect(shellElement.read<NoteProvider>().currentNote?.title, 'Quick_Ideas');
   });
 }
