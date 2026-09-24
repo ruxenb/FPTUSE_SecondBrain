@@ -10,7 +10,7 @@ When the user adds a new source to `raw/` and asks you to ingest it:
 4. Create or update concept pages for each major idea or entity
 5. Add wiki-links ([[page-name]]) to connect related pages
 6. Update `wiki/index.md` with new pages and one-line descriptions
-7. Append an entry to `wiki/log.md` with the date, source name, and what changed
+7. Append an entry to `docs/wiki_log.md` with the date, source name, and what changed
 
 A single source may touch 10-15 wiki pages. That is normal.
 
@@ -72,7 +72,7 @@ When the user asks you to lint or audit the wiki:
 ## Rules
 
 - Never modify anything in the `raw/` folder
-- Always update `wiki/index.md` and `wiki/log.md` after changes
+- Always update `wiki/index.md` and `docs/wiki_log.md` after changes
 - Keep page names lowercase with hyphens (e.g. `machine-learning.md`)
 - Write in clear, plain language
 - When uncertain about how to categorize something, ask the user

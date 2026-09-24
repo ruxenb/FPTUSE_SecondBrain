@@ -143,4 +143,3 @@ Danh mục toàn bộ các trang tri thức trong kho Second Brain Kỹ sư Ph�
 ## 📌 Trang Hệ thống (Meta Pages)
 
 - [[index]]: Mục lục định hướng toàn bộ kho tri thức wiki.
-- [[log]]: Nhật ký theo dõi lịch sử Ingest và cập nhật các trang wiki.

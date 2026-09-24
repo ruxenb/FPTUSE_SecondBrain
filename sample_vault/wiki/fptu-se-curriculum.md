@@ -1,4 +1,4 @@
-# FPT University Software Engineering Curriculum
+# FPT University Software Engineering K19 Curriculum
 
 **Summary**: Lộ trình đào tạo chuẩn 9 học kỳ ngành Kỹ thuật Phần mềm (Software Engineering) tại Đại học FPT từ nền tảng lập trình đến đồ án tốt nghiệp Capstone.
 
