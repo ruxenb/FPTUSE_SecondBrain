@@ -14,6 +14,12 @@ import 'services/local_vault_service.dart';
 import 'services/local_note_repository.dart';
 import 'services/gemini_ai_service.dart';
 
+// RAG / Embedding / Knowledge services
+import 'services/gemini_embedding_service.dart';
+import 'services/vault_index_service.dart';
+import 'services/knowledge_extractor_service.dart';
+import 'services/rag_pipeline.dart';
+
 // Providers (Tầng State Management của 4 thành viên)
 import 'providers/vault_provider.dart';
 import 'providers/note_provider.dart';
@@ -67,6 +73,28 @@ class FPTUSecondBrainApp extends StatelessWidget {
               : GeminiAIService(config: aiConfig),
         ),
 
+        // ─── 1.5. RAG Services ───
+        Provider<GeminiEmbeddingService>(
+          create: (_) => GeminiEmbeddingService(config: aiConfig),
+        ),
+        Provider<VaultIndexService>(
+          create: (ctx) => VaultIndexService(
+            noteRepository: ctx.read<NoteRepository>(),
+            embeddingService: ctx.read<GeminiEmbeddingService>(),
+            config: aiConfig,
+          ),
+        ),
+        Provider<KnowledgeExtractorService>(
+          create: (_) => KnowledgeExtractorService(config: aiConfig),
+        ),
+        Provider<RagPipeline>(
+          create: (ctx) => RagPipeline(
+            aiService: ctx.read<AIService>(),
+            indexService: ctx.read<VaultIndexService>(),
+            config: aiConfig,
+          ),
+        ),
+
         // ─── 2. Business Logic Providers ───
         ChangeNotifierProvider<VaultProvider>(
           create: (ctx) =>
@@ -79,13 +107,18 @@ class FPTUSecondBrainApp extends StatelessWidget {
         ChangeNotifierProvider<AIProvider>(
           create: (ctx) => AIProvider(
             aiService: ctx.read<AIService>(),
+            ragPipeline: aiConfig.enableRag && !aiConfig.useMock
+                ? ctx.read<RagPipeline>()
+                : null,
             maxHistoryMessages: aiConfig.maxHistoryMessages,
             clearStateOnNoteChange: aiConfig.clearStateOnNoteChange,
           ),
         ),
         ChangeNotifierProxyProvider<NoteProvider, GraphProvider>(
-          create: (ctx) =>
-              GraphProvider(noteRepository: ctx.read<NoteRepository>()),
+          create: (ctx) => GraphProvider(
+            noteRepository: ctx.read<NoteRepository>(),
+            knowledgeExtractorService: ctx.read<KnowledgeExtractorService>(),
+          ),
           update: (ctx, noteProvider, graphProvider) =>
               graphProvider!..updateFromNoteProvider(noteProvider),
         ),

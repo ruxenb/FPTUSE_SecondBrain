@@ -52,6 +52,8 @@ class _AIChatPanelState extends State<AIChatPanel> {
             currentNote?.title,
             currentNote?.content,
           ),
+          if (aiProvider.pinnedNotePaths.isNotEmpty)
+            _buildPinnedNotes(aiProvider),
           if (aiProvider.hasError) _buildError(aiProvider),
           const Divider(height: 1),
           Expanded(child: _buildConversation(aiProvider)),
@@ -236,15 +238,19 @@ class _AIChatPanelState extends State<AIChatPanel> {
             color: isUser ? AppColors.primary.withAlpha(100) : AppColors.border,
           ),
         ),
-        child: isUser
-            ? SelectableText(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isUser)
+              SelectableText(
                 message.text,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 12,
                 ),
               )
-            : MarkdownBody(
+            else
+              MarkdownBody(
                 data: message.text,
                 selectable: true,
                 styleSheet: MarkdownStyleSheet(
@@ -263,6 +269,146 @@ class _AIChatPanelState extends State<AIChatPanel> {
                   ),
                 ),
               ),
+            // ─── Retrieved notes indicator ───
+            if (!isUser && message.retrievedNotes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                children: [
+                  const Icon(
+                    Icons.auto_stories,
+                    size: 10,
+                    color: AppColors.textDisabled,
+                  ),
+                  for (final note in message.retrievedNotes)
+                    Text(
+                      note,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: AppColors.textDisabled,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            // ─── Citations ───
+            if (!isUser && message.citations.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              const Divider(height: 1),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                children: [
+                  const Text(
+                    '\uD83D\uDCDA',
+                    style: TextStyle(fontSize: 10),
+                  ),
+                  for (final citation in message.citations)
+                    Tooltip(
+                      message: citation.notePath.isNotEmpty
+                          ? '${citation.notePath}\nNhấp để mở note'
+                          : citation.noteTitle,
+                      child: InkWell(
+                        onTap: () {
+                          if (citation.notePath.isNotEmpty) {
+                            context.read<NoteProvider>().openNote(citation.notePath);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(3),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withAlpha(20),
+                            borderRadius: BorderRadius.circular(3),
+                            border: Border.all(
+                              color: AppColors.primary.withAlpha(60),
+                            ),
+                          ),
+                          child: Text(
+                            citation.toString(),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pinned notes chip bar — hiển thị các note được ghim vào context.
+  Widget _buildPinnedNotes(AIProvider provider) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withAlpha(12),
+        border: Border(
+          bottom: BorderSide(color: AppColors.primary.withAlpha(40)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.push_pin, size: 12, color: AppColors.primary),
+              const SizedBox(width: 4),
+              const Text(
+                'Pinned Notes',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: provider.clearPinnedNotes,
+                child: const Text(
+                  'Clear all',
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: AppColors.textDisabled,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: provider.pinnedNotePaths.map((notePath) {
+              final fileName = notePath.split(RegExp(r'[\\/]')).last;
+              return Chip(
+                label: Text(
+                  fileName,
+                  style: const TextStyle(fontSize: 10),
+                ),
+                deleteIcon: const Icon(Icons.close, size: 12),
+                onDeleted: () => provider.unpinNote(notePath),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: EdgeInsets.zero,
+                labelPadding: const EdgeInsets.only(left: 6),
+              );
+            }).toList(),
+          ),
+        ],
       ),
     );
   }

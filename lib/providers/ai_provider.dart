@@ -4,11 +4,14 @@ import '../contracts/ai_service.dart';
 import '../core/constants/ai_runtime_config.dart';
 import '../core/constants/app_constants.dart';
 import '../models/chat_message.dart';
+import '../models/note_chunk.dart';
 import '../models/quiz_question.dart';
+import '../services/rag_pipeline.dart';
 
 class AIProvider extends ChangeNotifier {
   AIProvider({
     required this.aiService,
+    this.ragPipeline,
     int? maxHistoryMessages,
     bool? clearStateOnNoteChange,
   }) : _maxHistoryMessages =
@@ -18,6 +21,10 @@ class AIProvider extends ChangeNotifier {
            AIRuntimeConfig.environment.clearStateOnNoteChange;
 
   final AIService aiService;
+
+  /// RAG pipeline (null nếu RAG chưa sẵn sàng, fallback về AI trực tiếp).
+  final RagPipeline? ragPipeline;
+
   final int _maxHistoryMessages;
   final bool _clearStateOnNoteChange;
 
@@ -28,6 +35,12 @@ class AIProvider extends ChangeNotifier {
   String? _activeNotePath;
   int _requestVersion = 0;
 
+  // ─── Pinned Notes (Multi-note context B4) ───
+  final List<String> _pinnedNotePaths = [];
+
+  // ─── Last RAG citations (for UI display) ───
+  List<SourceCitation> _lastCitations = const [];
+
   List<ChatMessage> get messages => List.unmodifiable(_messages);
   List<QuizQuestion> get quizQuestions => List.unmodifiable(_quizQuestions);
   bool get isLoading => _isLoading;
@@ -35,6 +48,32 @@ class AIProvider extends ChangeNotifier {
   bool get hasError => _errorMessage != null;
   bool get hasQuiz => _quizQuestions.isNotEmpty;
   String? get activeNotePath => _activeNotePath;
+  List<String> get pinnedNotePaths => List.unmodifiable(_pinnedNotePaths);
+  List<SourceCitation> get lastCitations => List.unmodifiable(_lastCitations);
+
+  // ─── Pinned Notes Management ───
+
+  void pinNote(String notePath) {
+    if (!_pinnedNotePaths.contains(notePath)) {
+      _pinnedNotePaths.add(notePath);
+      notifyListeners();
+    }
+  }
+
+  void unpinNote(String notePath) {
+    if (_pinnedNotePaths.remove(notePath)) {
+      notifyListeners();
+    }
+  }
+
+  void clearPinnedNotes() {
+    if (_pinnedNotePaths.isNotEmpty) {
+      _pinnedNotePaths.clear();
+      notifyListeners();
+    }
+  }
+
+  // ─── AI Operations ───
 
   Future<void> summarizeNote(String title, String content) async {
     if (!_canStartRequest()) {
@@ -114,28 +153,60 @@ class AIProvider extends ChangeNotifier {
       ),
     );
 
-    final contextualPrompt = _buildContextualPrompt(
-      prompt,
-      noteTitle: noteTitle,
-      noteContent: noteContent,
-    );
-
     final requestVersion = _beginRequest(notify: true);
     try {
-      final response = await aiService.sendChatMessage(
-        contextualPrompt,
-        history,
-      );
-      if (!_isCurrentRequest(requestVersion)) {
-        return;
+      // RAG path: dùng RagPipeline nếu có
+      if (ragPipeline != null) {
+        final ragResponse = await ragPipeline!.chat(
+          prompt,
+          history,
+          pinnedNotePaths: _pinnedNotePaths.isNotEmpty ? _pinnedNotePaths : null,
+          currentNoteTitle: noteTitle,
+          currentNoteContent: noteContent,
+        );
+        if (!_isCurrentRequest(requestVersion)) {
+          return;
+        }
+
+        _lastCitations = ragResponse.citations;
+
+        final retrievedNoteNames = ragResponse.retrievedChunks
+            .map((c) => c.noteTitle)
+            .toSet()
+            .toList();
+
+        _messages.add(
+          ChatMessage(
+            id: _newMessageId(),
+            sender: MessageSender.ai,
+            text: ragResponse.answer,
+            citations: ragResponse.citations,
+            retrievedNotes: retrievedNoteNames,
+          ),
+        );
+      } else {
+        // Fallback: gọi AI trực tiếp (flow cũ)
+        final contextualPrompt = _buildContextualPrompt(
+          prompt,
+          noteTitle: noteTitle,
+          noteContent: noteContent,
+        );
+        final response = await aiService.sendChatMessage(
+          contextualPrompt,
+          history,
+        );
+        if (!_isCurrentRequest(requestVersion)) {
+          return;
+        }
+        _lastCitations = const [];
+        _messages.add(
+          ChatMessage(
+            id: _newMessageId(),
+            sender: MessageSender.ai,
+            text: response,
+          ),
+        );
       }
-      _messages.add(
-        ChatMessage(
-          id: _newMessageId(),
-          sender: MessageSender.ai,
-          text: response,
-        ),
-      );
     } catch (error, stackTrace) {
       _handleError(error, stackTrace, requestVersion);
     } finally {
@@ -157,6 +228,7 @@ class AIProvider extends ChangeNotifier {
     _isLoading = false;
     _errorMessage = null;
     _quizQuestions = const [];
+    _lastCitations = const [];
     if (_clearStateOnNoteChange) {
       _messages.clear();
     }
@@ -169,6 +241,7 @@ class AIProvider extends ChangeNotifier {
     _quizQuestions = const [];
     _isLoading = false;
     _errorMessage = null;
+    _lastCitations = const [];
     notifyListeners();
   }
 
@@ -231,6 +304,7 @@ class AIProvider extends ChangeNotifier {
     return chatMessages.sublist(chatMessages.length - _maxHistoryMessages);
   }
 
+  /// Fallback prompt builder (khi không có RAG).
   String _buildContextualPrompt(
     String prompt, {
     String? noteTitle,

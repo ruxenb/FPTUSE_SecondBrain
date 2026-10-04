@@ -5,10 +5,14 @@ import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/constants/fptu_glossary.dart';
+import '../models/note.dart';
 import '../providers/graph_provider.dart';
 import '../providers/note_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/vault_provider.dart';
+import '../services/knowledge_extractor_service.dart';
+import '../services/vault_index_service.dart';
 import 'ai/ai_chat_panel.dart';
 import 'editor/note_editor_screen.dart';
 import 'graph/knowledge_graph_screen.dart';
@@ -32,13 +36,58 @@ class ShellScreen extends StatefulWidget {
 }
 
 class _ShellScreenState extends State<ShellScreen> {
+  String? _lastInitializedVaultPath;
+  late final NoteProvider _noteProvider;
+  late final VaultProvider _vaultProvider;
+
   @override
   void initState() {
     super.initState();
+    _noteProvider = context.read<NoteProvider>();
+    _vaultProvider = context.read<VaultProvider>();
+
+    _noteProvider.addNoteSavedListener(_onNoteSaved);
+    _vaultProvider.addListener(_onVaultChanged);
+
     if (widget.autoOpenDefaultVault) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _autoOpenDefaultVault();
       });
+    }
+  }
+
+  @override
+  void dispose() {
+    _noteProvider.removeNoteSavedListener(_onNoteSaved);
+    _vaultProvider.removeListener(_onVaultChanged);
+    super.dispose();
+  }
+
+  void _onVaultChanged() {
+    final vaultPath = _vaultProvider.vaultPath;
+    if (vaultPath != null && vaultPath != _lastInitializedVaultPath) {
+      _lastInitializedVaultPath = vaultPath;
+      _noteProvider.setVaultRootPath(vaultPath);
+      _initRagServices(vaultPath);
+    }
+  }
+
+  void _onNoteSaved(Note note, String vaultPath) {
+    if (!mounted) return;
+    try {
+      context.read<VaultIndexService>().updateIndex(note.path);
+    } catch (_) {
+      // Service not provided in some test harnesses
+    }
+    try {
+      context.read<KnowledgeExtractorService>().scheduleExtraction(
+        noteTitle: note.title,
+        noteContent: note.content,
+        notePath: note.path,
+        vaultRootPath: vaultPath,
+      );
+    } catch (_) {
+      // Service not provided in some test harnesses
     }
   }
 
@@ -48,10 +97,40 @@ class _ShellScreenState extends State<ShellScreen> {
     if (!vaultProvider.hasVault) {
       final defaultVault = Directory('sample_vault');
       if (defaultVault.existsSync()) {
-        await vaultProvider.openVault(defaultVault.absolute.path);
+        final vaultPath = defaultVault.absolute.path;
+        await vaultProvider.openVault(vaultPath);
         if (mounted) {
-          context.read<NoteProvider>().setVaultRootPath(defaultVault.absolute.path);
+          context.read<NoteProvider>().setVaultRootPath(vaultPath);
+          _initRagServices(vaultPath);
         }
+      }
+    }
+  }
+
+  /// Khởi tạo RAG services khi vault được mở.
+  Future<void> _initRagServices(String vaultPath) async {
+    if (!mounted) return;
+    _lastInitializedVaultPath = vaultPath;
+    // Load custom glossary overlay
+    await FptuGlossary.loadCustomOverlay(vaultPath);
+    // Load knowledge store
+    if (mounted) {
+      try {
+        await context.read<KnowledgeExtractorService>().loadStore(vaultPath);
+      } catch (_) {
+        // Service not provided in some test harnesses
+      }
+    }
+    // Build / incremental update vault index (background)
+    if (mounted) {
+      try {
+        final indexService = context.read<VaultIndexService>();
+        // ignore: unawaited_futures
+        indexService.buildIndex(vaultPath).then((_) {
+          if (mounted) setState(() {});
+        });
+      } catch (_) {
+        // Service not provided in some test harnesses
       }
     }
   }
@@ -407,6 +486,56 @@ class _ShellScreenState extends State<ShellScreen> {
             themeProvider.isDarkMode ? 'Dark' : 'Light',
             style: TextStyle(fontSize: 11, color: colorScheme.onSurface.withAlpha(100)),
           ),
+
+          // RAG Index status
+          if (vaultProvider.hasVault) ...[
+            _statusDivider(colorScheme),
+            Builder(
+              builder: (context) {
+                VaultIndexService? indexService;
+                try {
+                  indexService = context.read<VaultIndexService>();
+                } catch (_) {
+                  // Service not available
+                }
+                if (indexService == null) return const SizedBox.shrink();
+
+                final isIndexed = indexService.isIndexed;
+                final isIndexing = indexService.isIndexing;
+                final noteCount = indexService.indexedNoteCount;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isIndexing
+                          ? Icons.sync
+                          : isIndexed
+                              ? Icons.search
+                              : Icons.search_off,
+                      size: 11,
+                      color: isIndexed
+                          ? colorScheme.primary.withAlpha(180)
+                          : colorScheme.onSurface.withAlpha(80),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isIndexing
+                          ? 'Đang index...'
+                          : isIndexed
+                              ? 'RAG: $noteCount notes'
+                              : 'Chưa index',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isIndexed
+                            ? colorScheme.primary.withAlpha(180)
+                            : colorScheme.onSurface.withAlpha(80),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
         ],
       ),
     );

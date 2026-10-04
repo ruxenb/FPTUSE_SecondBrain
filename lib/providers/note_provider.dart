@@ -33,6 +33,32 @@ class NoteProvider extends ChangeNotifier {
   bool get hasNote => _currentNote != null;
   bool get hasError => _errorMessage != null;
 
+  final List<void Function(Note note, String vaultRootPath)> _noteSavedListeners = [];
+
+  /// Đăng ký callback khi một note được lưu thành công.
+  void addNoteSavedListener(void Function(Note note, String vaultRootPath) listener) {
+    if (!_noteSavedListeners.contains(listener)) {
+      _noteSavedListeners.add(listener);
+    }
+  }
+
+  /// Huỷ đăng ký callback lưu note.
+  void removeNoteSavedListener(void Function(Note note, String vaultRootPath) listener) {
+    _noteSavedListeners.remove(listener);
+  }
+
+  void _notifyNoteSaved(Note note) {
+    final vaultPath = _vaultRootPath;
+    if (vaultPath == null) return;
+    for (final listener in List.of(_noteSavedListeners)) {
+      try {
+        listener(note, vaultPath);
+      } catch (e) {
+        debugPrint('[NoteProvider] Error in noteSavedListener: $e');
+      }
+    }
+  }
+
   /// Member 1 gọi hàm này khi Vault hiện tại thay đổi.
   /// Sidebar vẫn chỉ cần gọi [openNote] với filePath.
   void setVaultRootPath(String? vaultRootPath) {
@@ -184,6 +210,7 @@ class NoteProvider extends ChangeNotifier {
         _isDirty = false;
       }
       await refreshBacklinks(notify: false);
+      _notifyNoteSaved(noteToSave);
       return true;
     } catch (error, stackTrace) {
       if (requestId == _saveRequestId) {

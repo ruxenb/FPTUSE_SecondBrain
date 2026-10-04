@@ -77,3 +77,60 @@ class LightColors {
   static const Color graphEdge = Color(0xFFA0A0B0);
   static const Color graphLabel = Color(0xFF1A1A2E);
 }
+
+/// Runtime palette for widgets that need to follow the active app theme.
+class AppColorPalette {
+  const AppColorPalette({
+    required this.surface,
+    required this.surfaceVariant,
+    required this.border,
+    required this.primary,
+    required this.secondary,
+    required this.success,
+    required this.warning,
+    required this.error,
+    required this.textPrimary,
+    required this.textSecondary,
+    required this.textDisabled,
+  });
+
+  final Color surface;
+  final Color surfaceVariant;
+  final Color border;
+  final Color primary;
+  final Color secondary;
+  final Color success;
+  final Color warning;
+  final Color error;
+  final Color textPrimary;
+  final Color textSecondary;
+  final Color textDisabled;
+
+  static const dark = AppColorPalette(
+    surface: AppColors.surface,
+    surfaceVariant: AppColors.surfaceVariant,
+    border: AppColors.border,
+    primary: AppColors.primary,
+    secondary: AppColors.secondary,
+    success: AppColors.success,
+    warning: AppColors.warning,
+    error: AppColors.error,
+    textPrimary: AppColors.textPrimary,
+    textSecondary: AppColors.textSecondary,
+    textDisabled: AppColors.textDisabled,
+  );
+
+  static const light = AppColorPalette(
+    surface: LightColors.surface,
+    surfaceVariant: LightColors.surfaceVariant,
+    border: LightColors.border,
+    primary: LightColors.primary,
+    secondary: LightColors.secondary,
+    success: LightColors.success,
+    warning: LightColors.warning,
+    error: LightColors.error,
+    textPrimary: LightColors.textPrimary,
+    textSecondary: LightColors.textSecondary,
+    textDisabled: LightColors.textDisabled,
+  );
+}

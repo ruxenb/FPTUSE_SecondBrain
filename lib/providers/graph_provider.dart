@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../contracts/note_repository.dart';
 import '../models/note.dart';
+import '../services/knowledge_extractor_service.dart';
 import 'note_provider.dart';
 
 // ─── Data Classes cho Graph ───
@@ -52,8 +53,12 @@ class GraphEdge {
 /// tương thích với thư viện `graphview` để vẽ Knowledge Graph.
 class GraphProvider extends ChangeNotifier {
   final NoteRepository noteRepository;
+  final KnowledgeExtractorService? knowledgeExtractorService;
 
-  GraphProvider({required this.noteRepository});
+  GraphProvider({
+    required this.noteRepository,
+    this.knowledgeExtractorService,
+  });
 
   // ─── State ───
   bool _isLoading = false;
@@ -132,6 +137,21 @@ class GraphProvider extends ChangeNotifier {
         // Tránh self-loop
         if (sourceId != targetId) {
           edgeSet.add(GraphEdge(sourceId: sourceId, targetId: targetId));
+        }
+      }
+    }
+
+    // Bước 3: Bổ sung edges từ KnowledgeExtractorService (extracted entities)
+    final extractor = knowledgeExtractorService;
+    if (extractor != null) {
+      for (final entity in extractor.allEntities) {
+        final sourceId = entity.noteTitle.toLowerCase();
+        for (final related in entity.relatedEntities) {
+          final targetId = related.toLowerCase();
+          // Nếu có node tương ứng hoặc liên kết giữa 2 notes
+          if (nodeMap.containsKey(targetId) && sourceId != targetId) {
+            edgeSet.add(GraphEdge(sourceId: sourceId, targetId: targetId));
+          }
         }
       }
     }

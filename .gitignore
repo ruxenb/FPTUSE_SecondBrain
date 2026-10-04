@@ -55,3 +55,6 @@ app.*.map.json
 
 # DevTools
 devtools_options.yaml
+
+# SecondBrain RAG index & knowledge store (generated, large)
+.secondbrain/

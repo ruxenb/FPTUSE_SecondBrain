@@ -75,7 +75,13 @@ class MockAIService implements AIService {
     List<ChatMessage> conversationHistory,
   ) async {
     await Future.delayed(_config.mockDelay);
-    return 'Mock AI đã nhận câu hỏi: "$prompt". '
-        'Hãy chuyển sang Gemini service khi cần kiểm thử API thực tế.';
+    return '''
+Mock AI đã nhận câu hỏi: "$prompt".
+Hệ thống RAG và FPTU Glossary đang hoạt động ở chế độ mô phỏng.
+
+📚 Nguồn:
+- (note: Cấu trúc dữ liệu và giải thuật, dòng 12-25)
+- (note: Tổng quan Clean Architecture, dòng 1-15)
+'''.trim();
   }
 }

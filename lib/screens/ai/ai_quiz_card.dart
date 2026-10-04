@@ -18,26 +18,33 @@ class _AIQuizCardState extends State<AIQuizCard> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).brightness == Brightness.dark
+        ? AppColorPalette.dark
+        : AppColorPalette.light;
     return Column(
       children: [
         for (var index = 0; index < widget.questions.length; index++)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
-            child: _buildQuestion(index, widget.questions[index]),
+            child: _buildQuestion(index, widget.questions[index], colors),
           ),
       ],
     );
   }
 
-  Widget _buildQuestion(int index, QuizQuestion question) {
+  Widget _buildQuestion(
+    int index,
+    QuizQuestion question,
+    AppColorPalette colors,
+  ) {
     final selected = _selectedAnswers[index];
     final revealed = _revealedAnswers.contains(index);
 
     return Material(
-      color: AppColors.surfaceVariant,
+      color: colors.surfaceVariant,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8),
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide(color: colors.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -47,8 +54,8 @@ class _AIQuizCardState extends State<AIQuizCard> {
           children: [
             Text(
               'Câu ${index + 1}. ${question.question}',
-              style: const TextStyle(
-                color: AppColors.textPrimary,
+              style: TextStyle(
+                color: colors.textPrimary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -78,8 +85,8 @@ class _AIQuizCardState extends State<AIQuizCard> {
                       title: Text(
                         '${String.fromCharCode(65 + optionIndex)}. '
                         '${question.options[optionIndex]}',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: colors.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -113,16 +120,16 @@ class _AIQuizCardState extends State<AIQuizCard> {
                     : 'Đáp án đúng: ${String.fromCharCode(65 + question.correctIndex)}.',
                 style: TextStyle(
                   color: selected == question.correctIndex
-                      ? AppColors.success
-                      : AppColors.warning,
+                       ? colors.success
+                       : colors.warning,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 6),
               Text(
                 question.explanation,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: colors.textSecondary,
                   fontSize: 12,
                 ),
               ),
