@@ -21,6 +21,7 @@ class AIRuntimeConfig {
     this.enableKnowledgeExtraction = true,
     this.embeddingBatchSize = 10,
     this.knowledgeExtractionDebounceMs = 5000,
+    this.ragIndexPath,
   });
 
   /// Reads configuration from a local `.env` file if present,
@@ -103,6 +104,7 @@ class AIRuntimeConfig {
         knowledgeExtractionDebounceMs:
             int.tryParse(map['KNOWLEDGE_EXTRACTION_DEBOUNCE_MS'] ?? '') ??
                 env.knowledgeExtractionDebounceMs,
+        ragIndexPath: map['RAG_INDEX_PATH']?.trim() ?? env.ragIndexPath,
       );
     } catch (_) {
       return env;
@@ -147,6 +149,7 @@ class AIRuntimeConfig {
     enableKnowledgeExtraction: true,
     embeddingBatchSize: 10,
     knowledgeExtractionDebounceMs: 5000,
+    ragIndexPath: null,
   );
 
   // ─── Original fields ───
@@ -188,6 +191,10 @@ class AIRuntimeConfig {
   /// Debounce cho knowledge extraction sau save note (ms).
   /// Tránh gọi API extraction liên tục khi auto-save.
   final int knowledgeExtractionDebounceMs;
+
+  /// Tuỳ chỉnh đường dẫn file index RAG (vd: `wiki/.secondbrain/index.json`).
+  /// Nếu không chỉ định, hệ thống tự động tìm index hoặc dùng `{vault}/.secondbrain/index.json`.
+  final String? ragIndexPath;
 
   // ─── Derived getters ───
   Duration get requestTimeout => Duration(milliseconds: requestTimeoutMs);

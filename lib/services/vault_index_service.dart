@@ -339,6 +339,8 @@ class VaultIndexService {
       final existing = indexedPaths[chunk.notePath];
       if (existing == null || chunk.indexedAt.isAfter(existing)) {
         indexedPaths[chunk.notePath] = chunk.indexedAt;
+        final fn = path.basename(chunk.notePath).toLowerCase();
+        indexedPaths[fn] = chunk.indexedAt;
       }
     }
 
@@ -346,13 +348,14 @@ class VaultIndexService {
     final currentPaths = <String>{};
     for (final note in notes) {
       currentPaths.add(note.path);
-      final indexedAt = indexedPaths[note.path];
+      final noteFn = path.basename(note.path).toLowerCase();
+      final indexedAt = indexedPaths[note.path] ?? indexedPaths[noteFn];
       if (indexedAt == null || note.lastModified.isAfter(indexedAt)) {
         notesToReindex.add(note);
       }
     }
 
-    // Dọn stale entries (note thuộc vault hiện tại đã bị xoá)
+    // Dọn stale entries (chỉ dọn note thực sự thuộc vaultRootPath hiện tại và đã bị xoá)
     _chunks.removeWhere(
       (c) =>
           path.isWithin(vaultRootPath, c.notePath) &&
@@ -366,7 +369,12 @@ class VaultIndexService {
 
     // Xoá chunks cũ của notes cần re-index
     final reindexPaths = notesToReindex.map((n) => n.path).toSet();
-    _chunks.removeWhere((c) => reindexPaths.contains(c.notePath));
+    final reindexFilenames =
+        notesToReindex.map((n) => path.basename(n.path).toLowerCase()).toSet();
+    _chunks.removeWhere((c) =>
+        reindexPaths.contains(c.notePath) ||
+        (path.isWithin(vaultRootPath, c.notePath) &&
+            reindexFilenames.contains(path.basename(c.notePath).toLowerCase())));
 
     // Chunk và embed notes mới
     final newChunks = <NoteChunk>[];
@@ -398,14 +406,18 @@ class VaultIndexService {
     }
 
     final noteMapByTitle = <String, Note>{};
+    final noteMapByFilename = <String, Note>{};
     for (final note in notes) {
       noteMapByTitle[note.title.toLowerCase()] = note;
+      noteMapByFilename[path.basename(note.path).toLowerCase()] = note;
     }
 
     var rebasedCount = 0;
     for (var i = 0; i < _chunks.length; i++) {
       final chunk = _chunks[i];
-      final matchedNote = noteMapByTitle[chunk.noteTitle.toLowerCase()];
+      final chunkFilename = path.basename(chunk.notePath).toLowerCase();
+      final matchedNote = noteMapByTitle[chunk.noteTitle.toLowerCase()] ??
+          noteMapByFilename[chunkFilename];
       if (matchedNote != null && chunk.notePath != matchedNote.path) {
         _chunks[i] = chunk.copyWith(notePath: matchedNote.path);
         rebasedCount++;
@@ -422,18 +434,46 @@ class VaultIndexService {
 
   // ─── Persistence (JSON file-based) ───
 
-  String _indexPath(String vaultRootPath) =>
-      path.join(vaultRootPath, '.secondbrain', 'index.json');
+  String _indexPath(String vaultRootPath) {
+    // 1. Cấu hình cụ thể từ config / .env (RAG_INDEX_PATH)
+    final configuredPath = config.ragIndexPath?.trim();
+    if (configuredPath != null && configuredPath.isNotEmpty) {
+      final directFile = File(configuredPath);
+      if (directFile.existsSync()) {
+        return directFile.absolute.path;
+      }
+      final relativeFromVault = path.join(vaultRootPath, configuredPath);
+      if (File(relativeFromVault).existsSync()) {
+        return File(relativeFromVault).absolute.path;
+      }
+    }
+
+    // 2. Tự động kiểm tra file index lớn tại wiki/.secondbrain/index.json
+    final candidateWikiIndex =
+        File(path.join('wiki', '.secondbrain', 'index.json'));
+    if (candidateWikiIndex.existsSync()) {
+      final localVaultIndex =
+          File(path.join(vaultRootPath, '.secondbrain', 'index.json'));
+      if (!localVaultIndex.existsSync() ||
+          localVaultIndex.lengthSync() < candidateWikiIndex.lengthSync()) {
+        return candidateWikiIndex.absolute.path;
+      }
+    }
+
+    return path.join(vaultRootPath, '.secondbrain', 'index.json');
+  }
 
   Future<void> _loadIndexFromDisk(String vaultRootPath) async {
     try {
-      final file = File(_indexPath(vaultRootPath));
+      final resolvedPath = _indexPath(vaultRootPath);
+      final file = File(resolvedPath);
       if (!await file.exists()) {
         _chunks = [];
         _meta = null;
         return;
       }
 
+      debugPrint('[VaultIndex] Loading vector index from: $resolvedPath');
       final content = await file.readAsString(encoding: utf8);
       final decoded = jsonDecode(content) as Map<String, dynamic>;
 
@@ -446,6 +486,11 @@ class VaultIndexService {
           .whereType<Map<String, dynamic>>()
           .map(NoteChunk.fromJson)
           .toList();
+
+      debugPrint(
+        '[VaultIndex] Loaded ${_chunks.length} chunks from disk '
+        '(built: ${_meta?.builtAt}, model: ${_meta?.embeddingModel})',
+      );
     } catch (e) {
       debugPrint('[VaultIndex] Error loading index: $e');
       _chunks = [];
@@ -469,7 +514,8 @@ class VaultIndexService {
 
   Future<void> _performSave(String vaultRootPath) async {
     try {
-      final dir = Directory(path.join(vaultRootPath, '.secondbrain'));
+      final filePath = _indexPath(vaultRootPath);
+      final dir = Directory(path.dirname(filePath));
       if (!await dir.exists()) {
         await dir.create(recursive: true);
       }
@@ -484,7 +530,6 @@ class VaultIndexService {
       };
 
       // Atomic write: ghi vào temp file rồi rename
-      final filePath = _indexPath(vaultRootPath);
       final tempPath = '$filePath.tmp';
       final tempFile = File(tempPath);
       await tempFile.writeAsString(

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fptu_se_second_brain/core/constants/ai_runtime_config.dart';
 import 'package:fptu_se_second_brain/core/constants/fptu_glossary.dart';
 import 'package:fptu_se_second_brain/models/chat_message.dart';
 import 'package:fptu_se_second_brain/models/knowledge_entity.dart';
@@ -166,6 +167,11 @@ void main() {
       expect(message.citations.first.noteTitle, equals('Clean Architecture'));
       expect(message.retrievedNotes.length, equals(2));
       expect(message.retrievedNotes, contains('SOLID Principles'));
+    });
+
+    test('AIRuntimeConfig loads RAG_INDEX_PATH from .env', () {
+      final config = AIRuntimeConfig.load();
+      expect(config.ragIndexPath, equals('wiki/.secondbrain/index.json'));
     });
   });
 }
