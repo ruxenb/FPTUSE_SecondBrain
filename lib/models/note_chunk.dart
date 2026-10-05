@@ -60,15 +60,23 @@ class NoteChunk {
         'indexedAt': indexedAt.toIso8601String(),
       };
 
-  NoteChunk copyWith({List<double>? embedding}) {
+  NoteChunk copyWith({
+    String? noteTitle,
+    String? notePath,
+    String? content,
+    int? startLine,
+    int? endLine,
+    List<double>? embedding,
+    DateTime? indexedAt,
+  }) {
     return NoteChunk(
-      noteTitle: noteTitle,
-      notePath: notePath,
-      content: content,
-      startLine: startLine,
-      endLine: endLine,
+      noteTitle: noteTitle ?? this.noteTitle,
+      notePath: notePath ?? this.notePath,
+      content: content ?? this.content,
+      startLine: startLine ?? this.startLine,
+      endLine: endLine ?? this.endLine,
       embedding: embedding ?? this.embedding,
-      indexedAt: indexedAt,
+      indexedAt: indexedAt ?? this.indexedAt,
     );
   }
 }

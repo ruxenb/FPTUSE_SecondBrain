@@ -331,6 +331,7 @@ class VaultIndexService {
 
   Future<void> _incrementalUpdate(String vaultRootPath) async {
     final notes = await noteRepository.getAllNotes(vaultRootPath);
+    await _rebasePathsIfMoved(vaultRootPath, notes);
 
     // Tìm notes cần re-index (mới hơn index)
     final indexedPaths = <String, DateTime>{};
@@ -381,6 +382,42 @@ class VaultIndexService {
       '${notesToReindex.length} notes re-indexed, '
       '${embedded.length} new chunks',
     );
+  }
+
+  /// Tự động cập nhật notePath của các chunks khi vault được copy/chuyển sang máy khác
+  /// hoặc đổi thư mục gốc. Tránh việc re-index lại toàn bộ từ đầu gây tốn quota API.
+  Future<void> _rebasePathsIfMoved(
+    String vaultRootPath,
+    List<Note> notes,
+  ) async {
+    if (_chunks.isEmpty || notes.isEmpty) return;
+
+    final firstPath = _chunks.first.notePath;
+    if (File(firstPath).existsSync() && path.isWithin(vaultRootPath, firstPath)) {
+      return;
+    }
+
+    final noteMapByTitle = <String, Note>{};
+    for (final note in notes) {
+      noteMapByTitle[note.title.toLowerCase()] = note;
+    }
+
+    var rebasedCount = 0;
+    for (var i = 0; i < _chunks.length; i++) {
+      final chunk = _chunks[i];
+      final matchedNote = noteMapByTitle[chunk.noteTitle.toLowerCase()];
+      if (matchedNote != null && chunk.notePath != matchedNote.path) {
+        _chunks[i] = chunk.copyWith(notePath: matchedNote.path);
+        rebasedCount++;
+      }
+    }
+
+    if (rebasedCount > 0) {
+      debugPrint(
+        '[VaultIndex] Rebased $rebasedCount chunks to local vault path: $vaultRootPath',
+      );
+      await _saveIndexToDisk(vaultRootPath);
+    }
   }
 
   // ─── Persistence (JSON file-based) ───
